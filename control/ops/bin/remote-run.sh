@@ -3,12 +3,12 @@
 # scripts know WORK_DIR / TMUX_SESSION / EXTRA_LOG without anything being installed
 # on the remote. The remote stays stateless except for ~/dev-session.sh.
 #
-#   usage: bin/remote-run.sh <status.sh|logs.sh|revive.sh>
+#   usage: bin/remote-run.sh <status.sh|logs.sh|revive.sh|stop-dev.sh>
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 . "$ROOT/config.env"
 
-script="${1:?usage: remote-run.sh <status.sh|logs.sh|revive.sh>}"
+script="${1:?usage: remote-run.sh <status.sh|logs.sh|revive.sh|stop-dev.sh>}"
 src="$ROOT/control/ops/bin/$script"
 [ -f "$src" ] || { echo "no such script: $script" >&2; exit 1; }
 

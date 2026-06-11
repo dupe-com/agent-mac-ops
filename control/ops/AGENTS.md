@@ -17,11 +17,18 @@ so they always use the remote's environment, and the remote needs nothing instal
 control/ops/bin/remote-run.sh status.sh   # uptime, load, disk, tmux dev session, repo
 control/ops/bin/remote-run.sh logs.sh     # recent dev-session output + check log + extra log
 control/ops/bin/remote-run.sh revive.sh   # recreate the dev tmux session
+control/ops/bin/remote-run.sh stop-dev.sh # stop the dev stack (window-safe — signals dev.ts, leaves tmux up)
 ```
 
 When asked to "check on the box": run `status.sh`, summarize in one or two sentences,
 and only surface lines with `⚠️`. If something looks down, propose `revive.sh` before
 escalating.
+
+`stop-dev.sh` is the one mutating command here (an explicit "stop my dev servers"
+action) — it SIGTERMs the `bun scripts/dev.ts` multiplexer so its own shutdown reaps
+every child, then sweeps any orphan and reports which ports (if any) are still held.
+It deliberately does NOT touch the tmux session, so it's safe to run without dropping
+the human's interactive `-CC` window. Use it instead of sending `q` to the pane.
 
 ## What "healthy" looks like
 

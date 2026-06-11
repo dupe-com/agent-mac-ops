@@ -20,7 +20,19 @@ _amo_cp="$HOME/.ssh/cm-%r@%h:%p"
 
 # @@SSH_FORWARDS@@ = reverse tunnel for browser handoff (-R) + any FORWARD_PORTS
 # (-L), so remote dev servers and OAuth localhost callbacks reach your Mac.
-_amo_iterm() { ssh -t @@SSH_FORWARDS@@ @@REMOTE_HOST@@ '~/dev-session.sh'; }
+#
+# The forwards ride the DETACHED master (_amo_master), never this -CC connection.
+# Why it matters: a -L forward pointed at a dev server you just stopped will spew
+# "channel N: open failed: connect failed" every time the page polls it. On the
+# tmux -CC connection those bytes corrupt the control protocol and iTerm force-
+# quits tmux mode (closing your window). On the detached master, stderr is sent to
+# /dev/null, so the noise is harmless. The -CC session opens as its own clean,
+# independent connection (ControlPath=none) carrying only the tmux protocol; -q
+# silences any residual client chatter.
+_amo_iterm() {
+  _amo_master
+  ssh -tq -o ControlPath=none @@REMOTE_HOST@@ '~/dev-session.sh'
+}
 
 _amo_master() {   # ensure one multiplexed master carrying the forwards
   ssh -o ControlPath="$_amo_cp" -O check @@REMOTE_HOST@@ 2>/dev/null && return 0
