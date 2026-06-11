@@ -94,6 +94,23 @@ your Mac → done. `box-fwd oauth <url>` remains the manual fallback for tools t
 
 ---
 
+## Files
+
+Move files to/from the remote without typing the host — `rsync -avzP` (resumable,
+shows progress) with `REMOTE_HOST` filled from `config.env`:
+
+```bash
+<alias>-push ~/Downloads/report.json        # → remote home
+<alias>-push ./dist ~/deploys/              # → a remote dir (last arg = dest)
+<alias>-pull ~/Work/app/out.csv             # → cwd
+<alias>-pull '~/logs/*.log' ./logs/         # quote globs so the REMOTE expands them
+```
+
+One path goes to a sensible default (remote home for push, cwd for pull); pass a
+second to set the destination. Directory trailing-slash follows rsync's rule
+(`dir/` copies contents, `dir` copies the dir). For ad-hoc one-offs, plain
+`scp`/`rsync` against the host alias work too — these just save the typing.
+
 ## Clipboard images (screenshots → Ctrl+V on the remote)
 
 macOS clipboards are per-machine, and a terminal forwards clipboard **text** only —

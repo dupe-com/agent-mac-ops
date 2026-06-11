@@ -99,3 +99,10 @@ alias @@ALIAS_NAME@@-fwd="@@ROOT@@/control/bin/box-fwd.sh"
 # only, never image bytes, so this bridges it. Copy a shot (Cmd+Ctrl+Shift+4) then:
 #   @@ALIAS_NAME@@-clip
 alias @@ALIAS_NAME@@-clip="@@ROOT@@/control/bin/clip-push.sh"
+
+# Move files to/from the remote without typing the host (rsync -avzP under the hood):
+#   @@ALIAS_NAME@@-push ~/Downloads/x.json        send to remote home
+#   @@ALIAS_NAME@@-push ./dist ~/deploys/         send to a remote dir
+#   @@ALIAS_NAME@@-pull ~/Work/app/out.csv        fetch into cwd
+alias @@ALIAS_NAME@@-push="@@ROOT@@/control/bin/xfer.sh push"
+alias @@ALIAS_NAME@@-pull="@@ROOT@@/control/bin/xfer.sh pull"
