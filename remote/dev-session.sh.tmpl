@@ -1,0 +1,18 @@
+#!/bin/zsh
+# agent-mac-ops dev session (lives on the remote; rendered + pushed by setup.sh).
+#
+# `tmux -CC` is control mode: iTerm2 renders the remote tmux session as NATIVE
+# iTerm windows/panes/tabs — resizable, with real Cmd+D / Cmd+T splits that are
+# actually connected to the remote. Plain `tmux attach` gives you a full-screen
+# tmux with tmux keybinds and no native panes; -CC is what gives the native feel.
+# Connect ONCE per session; use iTerm shortcuts after (re-running spawns a 2nd client).
+export PATH=/opt/homebrew/bin:/usr/local/bin:$PATH
+
+SESSION="@@TMUX_SESSION@@"
+WORK_DIR="@@WORK_DIR@@"
+WORK_DIR="${WORK_DIR/#\~/$HOME}"   # expand a leading ~ on the remote
+
+tmux has-session -t "$SESSION" 2>/dev/null && exec tmux -CC attach -t "$SESSION"
+
+tmux new-session -d -s "$SESSION" -c "$WORK_DIR"
+exec tmux -CC attach -t "$SESSION"

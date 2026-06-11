@@ -1,0 +1,4 @@
+# Rendered from *.tmpl by setup.sh — machine-specific, never committed.
+config.env
+control/shell-snippet.sh
+remote/dev-session.sh

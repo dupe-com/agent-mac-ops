@@ -1,0 +1,11 @@
+# agent-mac-ops — type `@@ALIAS_NAME@@` to open your always-on Mac as NATIVE iTerm
+# windows/panes (resizable, real Cmd+D / Cmd+T splits connected to the remote).
+#
+# Source this from ~/.zshrc, BEFORE your iTerm2 shell-integration line. iTerm2's
+# shell integration self-disables inside tmux (when $TERM is tmux/screen), so
+# RemoteHost is never reported from inside a `tmux -CC` session and Automatic
+# Profile Switching can't recolor the window. This flag forces it back on — it
+# is the load-bearing fix that makes the whole thing work.
+export ITERM_ENABLE_SHELL_INTEGRATION_WITH_TMUX=1
+
+alias @@ALIAS_NAME@@="ssh -t @@REMOTE_HOST@@ '~/dev-session.sh'"
