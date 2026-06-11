@@ -1,6 +1,12 @@
-# agent-mac-ops
+<p align="center">
+  <img src="assets/agent-mac-ops.png" alt="agent-mac-ops" width="200">
+</p>
 
-**Operate your always-on Mac by talking to an AI agent — and connect to it as native, resizable iTerm2 or Ghostty windows.**
+<h1 align="center">agent-mac-ops</h1>
+
+<p align="center">
+  <b>Operate your always-on Mac by talking to an AI agent — and connect to it as native, resizable iTerm2 or Ghostty windows.</b>
+</p>
 
 You have a Mac that stays on (a Studio under the desk, an old MacBook on a shelf). Two things you
 always wished were easy:
