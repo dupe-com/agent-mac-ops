@@ -16,7 +16,17 @@ render() {
       -e "s|@@SSH_FORWARDS@@|${SSH_FORWARDS}|g" \
       -e "s|@@HANDOFF_PORT@@|${HANDOFF_PORT}|g" \
       -e "s|@@HANDOFF_TOKEN@@|${HANDOFF_TOKEN}|g" \
+      -e "s|@@GHOSTTY_REMOTE_COLOR@@|${GHOSTTY_REMOTE_COLOR:-}|g" \
       "$1"
+}
+
+# Render every template from the current config (used by both init and render).
+render_all() {
+  render "$ROOT/control/shell-snippet.sh.tmpl"     > "$ROOT/control/shell-snippet.sh"
+  render "$ROOT/control/bin/ghostty-connect.sh.tmpl" > "$ROOT/control/bin/ghostty-connect.sh"
+  render "$ROOT/remote/dev-session.sh.tmpl"        > "$ROOT/remote/dev-session.sh"
+  render "$ROOT/remote/open-handoff.sh.tmpl"       > "$ROOT/remote/open-handoff.sh"
+  chmod +x "$ROOT/control/bin/ghostty-connect.sh" "$ROOT/remote/dev-session.sh" "$ROOT/remote/open-handoff.sh"
 }
 
 build_forwards() {
@@ -40,6 +50,7 @@ case "$cmd" in
     TMUX_SESSION="$(ask 'tmux session name' "$TMUX_SESSION")"
     ALIAS_NAME="$(ask 'local shell command to connect' "$ALIAS_NAME")"
     PROFILE_NAME="$(ask 'iTerm2 profile name (see SETUP.md)' "$PROFILE_NAME")"
+    GHOSTTY_REMOTE_COLOR="$(ask 'Ghostty remote background tint, hex (blank = no tint)' "${GHOSTTY_REMOTE_COLOR:-#2a1f3d}")"
     FORWARD_PORTS="$(ask 'ports to auto-forward on connect (space-sep, blank = none)' "${FORWARD_PORTS:-}")"
     HANDOFF_ENABLED="$(ask 'open remote auth URLs on this Mac? (true/false)' "${HANDOFF_ENABLED:-true}")"
     HANDOFF_PORT="$(ask 'handoff listener port' "${HANDOFF_PORT:-17999}")"
@@ -61,6 +72,7 @@ WORK_DIR="$WORK_DIR"
 TMUX_SESSION="$TMUX_SESSION"
 ALIAS_NAME="$ALIAS_NAME"
 PROFILE_NAME="$PROFILE_NAME"
+GHOSTTY_REMOTE_COLOR="$GHOSTTY_REMOTE_COLOR"
 FORWARD_PORTS="$FORWARD_PORTS"
 HANDOFF_ENABLED="$HANDOFF_ENABLED"
 HANDOFF_PORT="$HANDOFF_PORT"
@@ -72,19 +84,17 @@ CHECK_HOUR="${CHECK_HOUR:-9}"
 CHECK_MIN="${CHECK_MIN:-0}"
 EOF
 
-    render "$ROOT/control/shell-snippet.sh.tmpl" > "$ROOT/control/shell-snippet.sh"
-    render "$ROOT/remote/dev-session.sh.tmpl"    > "$ROOT/remote/dev-session.sh"
-    render "$ROOT/remote/open-handoff.sh.tmpl"   > "$ROOT/remote/open-handoff.sh"
-    chmod +x "$ROOT/remote/dev-session.sh" "$ROOT/remote/open-handoff.sh"
+    render_all
 
     echo
-    echo "✅ wrote config.env + rendered shell-snippet.sh, dev-session.sh, open-handoff.sh"
+    echo "✅ wrote config.env + rendered shell-snippet.sh, ghostty-connect.sh, dev-session.sh, open-handoff.sh"
     echo
     echo "next:"
     echo "  1) add to ~/.zshrc, BEFORE your iTerm shell-integration line:"
     echo "       source \"$ROOT/control/shell-snippet.sh\""
     echo "  2) push to the remote:                   ./setup.sh remote"
     echo "  3) iTerm2 GUI steps in SETUP.md          (profile + Automatic Profile Switching)"
+    echo "     Ghostty users: no GUI steps — '$ALIAS_NAME' just works (see SETUP.md §4b)."
     [ "${HANDOFF_ENABLED}" = "true" ] && \
     echo "  4) browser handoff listener:             control/bin/install-open-listener.sh"
     echo "  5) optional daily digest:                control/ops/bin/install-launchd.sh"
@@ -95,11 +105,8 @@ EOF
     [ -f "$ROOT/config.env" ] || { echo "no config.env — run ./setup.sh first" >&2; exit 1; }
     . "$ROOT/config.env"
     build_forwards
-    render "$ROOT/control/shell-snippet.sh.tmpl" > "$ROOT/control/shell-snippet.sh"
-    render "$ROOT/remote/dev-session.sh.tmpl"    > "$ROOT/remote/dev-session.sh"
-    render "$ROOT/remote/open-handoff.sh.tmpl"   > "$ROOT/remote/open-handoff.sh"
-    chmod +x "$ROOT/remote/dev-session.sh" "$ROOT/remote/open-handoff.sh"
-    echo "✅ re-rendered shell-snippet.sh, dev-session.sh, open-handoff.sh from config.env"
+    render_all
+    echo "✅ re-rendered shell-snippet.sh, ghostty-connect.sh, dev-session.sh, open-handoff.sh from config.env"
     ;;
 
   remote)
@@ -109,6 +116,33 @@ EOF
     echo "pushing to $REMOTE_HOST ..."
     scp "$ROOT/remote/dev-session.sh" "$REMOTE_HOST:~/dev-session.sh"
     ssh "$REMOTE_HOST" 'chmod +x ~/dev-session.sh; command -v tmux >/dev/null || echo "⚠️  tmux not on remote — install it: brew install tmux"'
+
+    # Install Ghostty's terminfo on the remote so TERM=xterm-ghostty resolves there.
+    # Without it, native Ghostty sessions send an unknown TERM and keystrokes come
+    # back garbled/doubled. Ghostty ships its terminfo INSIDE the app bundle, not the
+    # system db — so look there too. dev-session.sh also falls back to xterm-256color,
+    # so this is fidelity, not a hard requirement (best-effort, safe under set -e).
+    GTI=""
+    if ! infocmp -x xterm-ghostty >/dev/null 2>&1; then
+      for d in /Applications/Ghostty.app "$HOME/Applications/Ghostty.app"; do
+        if TERMINFO="$d/Contents/Resources/terminfo" infocmp -x xterm-ghostty >/dev/null 2>&1; then
+          GTI="$d/Contents/Resources/terminfo"; break
+        fi
+      done
+      HAVE_GTI=$([ -n "$GTI" ] && echo 1 || echo "")
+    else
+      HAVE_GTI=1
+    fi
+    if [ -n "${HAVE_GTI:-}" ]; then
+      if { [ -n "$GTI" ] && env TERMINFO="$GTI" infocmp -x xterm-ghostty || infocmp -x xterm-ghostty; } 2>/dev/null \
+           | ssh "$REMOTE_HOST" 'tic -x - >/dev/null 2>&1'; then
+        echo "✅ installed xterm-ghostty terminfo on $REMOTE_HOST"
+      else
+        echo "⚠️  couldn't install xterm-ghostty terminfo (sessions fall back to xterm-256color — fine)"
+      fi
+    else
+      echo "ℹ️  no local xterm-ghostty terminfo found — Ghostty sessions use xterm-256color (fine)"
+    fi
     if [ "${HANDOFF_ENABLED:-true}" = "true" ] && [ -f "$ROOT/remote/open-handoff.sh" ]; then
       ssh "$REMOTE_HOST" 'mkdir -p ~/bin'
       scp "$ROOT/remote/open-handoff.sh" "$REMOTE_HOST:~/bin/open"

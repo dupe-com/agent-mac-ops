@@ -1,6 +1,6 @@
 # agent-mac-ops
 
-**Operate your always-on Mac by talking to an AI agent — and connect to it as native, resizable iTerm2 windows.**
+**Operate your always-on Mac by talking to an AI agent — and connect to it as native, resizable iTerm2 or Ghostty windows.**
 
 You have a Mac that stays on (a Studio under the desk, an old MacBook on a shelf). Two things you
 always wished were easy:
@@ -8,14 +8,17 @@ always wished were easy:
 1. **Drive it from your laptop.** Open a folder, tell Claude/Codex *"check on the box,"* and it SSHes
    in, reports uptime/disk/load/dev-session health in plain language, and revives a wedged session —
    no SSH commands typed by you. Plus an optional daily digest to Slack/Discord.
-2. **Actually work on it.** Type one command and the remote opens as **native iTerm2 windows and
-   panes** — resizable, real `Cmd+D` / `Cmd+T` splits connected to the remote, normal keys — and
-   auto-colored so you never confuse it with localhost.
+2. **Actually work on it.** Type one command and the remote opens as **native windows and panes** —
+   resizable, real `Cmd+D` / `Cmd+T` splits connected to the remote, normal keys — and auto-colored
+   so you never confuse it with localhost.
 
-That second part is the hard-won bit. `tmux -CC` (iTerm2 control mode) plus a non-obvious shell-integration
-flag plus iTerm2 Automatic Profile Switching is the only combination that gives a *native* remote
-session that also recolors itself. The setup is documented step-by-step in **[SETUP.md](SETUP.md)** —
-that doc is honestly the most valuable thing in this repo.
+That second part is the hard-won bit, and it differs by terminal. With **iTerm2**, `tmux -CC` (control
+mode) plus a non-obvious shell-integration flag plus Automatic Profile Switching is the only combination
+that gives a *native* remote session that also recolors itself. **Ghostty** has no `-CC`, so `box`
+instead opens a Ghostty instance whose native splits each auto-ssh into the remote (tinted via OSC for
+the "not localhost" cue), with `box-tmux` for a persistent session. `box` auto-detects which terminal
+you're in. It's all documented step-by-step in **[SETUP.md](SETUP.md)** — honestly the most valuable
+thing in this repo.
 
 3. **Log in without Screen Sharing.** The classic remote-Mac pain: a CLI opens an auth page *on the
    remote*, and the OAuth callback wants `localhost` — the wrong machine from your laptop. agent-mac-ops
@@ -24,8 +27,9 @@ that doc is honestly the most valuable thing in this repo.
 
 ## Requirements
 
-- **macOS + iTerm2** on the control machine — for the native-window magic. `tmux -CC` is an iTerm2
-  protocol; Terminal.app won't do it and WezTerm only partially. *(The agent-ops half —
+- **macOS + iTerm2 _or_ Ghostty** on the control machine — for the native-window magic. iTerm2 uses
+  `tmux -CC` (Terminal.app won't do it, WezTerm only partially); Ghostty (≥ 1.2.0) uses native splits
+  that each auto-ssh in. `box` auto-detects which you're using. *(The agent-ops half —
   status/logs/revive/digest — is plain SSH + bash and works against any host.)*
 - **tmux** on the remote (`brew install tmux`).
 - **SSH reachability** to the remote. [Tailscale](https://tailscale.com) is the recommended way (no
@@ -43,12 +47,15 @@ git clone https://github.com/<you>/agent-mac-ops && cd agent-mac-ops
 # add to ~/.zshrc, BEFORE your iTerm2 shell-integration line:
 source /path/to/agent-mac-ops/control/shell-snippet.sh
 
-# then follow SETUP.md for the iTerm2 profile + Automatic Profile Switching (the coloring)
+# iTerm2: follow SETUP.md for the profile + Automatic Profile Switching (the coloring)
+# Ghostty: nothing else to do — see SETUP.md §4b
 ```
 
 Now:
 
-- **`box`** (or whatever alias you chose) → native, colored iTerm2 window into the remote.
+- **`box`** (or whatever alias you chose) → native, colored window into the remote (iTerm2 `-CC`
+  panes, or Ghostty native splits — auto-detected). Ghostty adds **`box-tmux`** for a persistent
+  session that survives disconnect.
 - **Point your agent at `control/ops/`** and say *"check on the box."*
 - **Browser handoff:** `control/bin/install-open-listener.sh` so remote auth pages open on your Mac.
 - **Optional:** `control/ops/bin/install-launchd.sh` for a daily health digest.
@@ -58,8 +65,9 @@ Now:
 ```
 control machine (your laptop)                     always-on Mac (the remote)
 ─────────────────────────────                     ──────────────────────────
-shell-snippet.sh  → alias `box` ─── ssh -t ───▶   ~/dev-session.sh
-                                                    └─ tmux -CC attach  ──▶ native iTerm2 windows
+shell-snippet.sh  → `box` ───────── ssh -t ───▶   ~/dev-session.sh
+   (iTerm2)                                          └─ tmux -CC attach  ──▶ native iTerm2 windows
+   (Ghostty) ghostty-connect.sh ─── ssh -t ───▶      └─ login shell / tmux ─▶ native Ghostty splits
 control/ops/AGENTS.md  ← your agent reads this
 control/ops/bin/remote-run.sh ── ssh + stdin ──▶   status.sh / logs.sh / revive.sh (run, then gone)
 control/ops/bin/daily-check.sh ── launchd ──▶      webhook digest (Slack/Discord/…)

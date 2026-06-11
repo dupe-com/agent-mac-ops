@@ -1,17 +1,62 @@
-# agent-mac-ops — type `@@ALIAS_NAME@@` to open your always-on Mac as NATIVE iTerm
-# windows/panes (resizable, real Cmd+D / Cmd+T splits connected to the remote).
+# agent-mac-ops — `@@ALIAS_NAME@@` opens your always-on Mac as a NATIVE remote
+# session. It adapts to your terminal:
+#   • iTerm2  → `tmux -CC` control mode = native iTerm panes that reattach (classic).
+#   • Ghostty → a new Ghostty instance whose every native split/tab (Cmd+D / Cmd+T)
+#               auto-ssh's into the remote. Ghostty has no -CC; this is the closest
+#               native equivalent. `@@ALIAS_NAME@@-tmux` trades native splits for a
+#               persistent tmux session that survives disconnect. See SETUP.md.
 #
-# Source this from ~/.zshrc, BEFORE your iTerm2 shell-integration line. iTerm2's
+# Source this from ~/.zshrc, BEFORE your iTerm2 shell-integration line: iTerm2's
 # shell integration self-disables inside tmux (when $TERM is tmux/screen), so
-# RemoteHost is never reported from inside a `tmux -CC` session and Automatic
-# Profile Switching can't recolor the window. This flag forces it back on — it
-# is the load-bearing fix that makes the whole thing work.
+# RemoteHost is never reported from a `tmux -CC` session and Automatic Profile
+# Switching can't recolor. This flag forces it back on — load-bearing for the iTerm
+# path, harmless for Ghostty.
 export ITERM_ENABLE_SHELL_INTEGRATION_WITH_TMUX=1
 
-# Connect. @@SSH_FORWARDS@@ carries the reverse tunnel for browser handoff (-R)
-# plus any FORWARD_PORTS (-L), so dev servers and OAuth localhost callbacks on the
-# remote are reachable at your Mac's localhost for the life of the session.
-alias @@ALIAS_NAME@@="ssh -t @@SSH_FORWARDS@@ @@REMOTE_HOST@@ '~/dev-session.sh'"
+# Shared SSH master (same ControlPath as box-fwd). The first connection opens it
+# WITH the forwards below; later Ghostty splits ride it → instant, no re-auth, and
+# only the master holds the forwards so splits never collide on the -R tunnel.
+_amo_cp="$HOME/.ssh/cm-%r@%h:%p"
+
+# @@SSH_FORWARDS@@ = reverse tunnel for browser handoff (-R) + any FORWARD_PORTS
+# (-L), so remote dev servers and OAuth localhost callbacks reach your Mac.
+_amo_iterm() { ssh -t @@SSH_FORWARDS@@ @@REMOTE_HOST@@ '~/dev-session.sh'; }
+
+_amo_master() {   # ensure one multiplexed master carrying the forwards
+  ssh -o ControlPath="$_amo_cp" -O check @@REMOTE_HOST@@ 2>/dev/null && return 0
+  ssh -o ControlMaster=yes -o ControlPath="$_amo_cp" -o ControlPersist=4h \
+      -fNT @@SSH_FORWARDS@@ @@REMOTE_HOST@@ 2>/dev/null || true
+}
+
+_amo_ghostty() {  # $1 = native | tmux
+  _amo_master
+  open -na Ghostty --args \
+    --command="@@ROOT@@/control/bin/ghostty-connect.sh ${1:-native}" \
+    --shell-integration-features=ssh-env,ssh-terminfo \
+    --title="@@REMOTE_HOST@@ · ${1:-native}" \
+  || { echo "@@ALIAS_NAME@@: couldn't launch Ghostty — is it installed?" >&2; return 1; }
+}
+
+# Clear any prior alias of these names (older versions of this snippet defined
+# `@@ALIAS_NAME@@` as an alias; zsh won't let a function shadow an existing alias).
+unalias @@ALIAS_NAME@@ @@ALIAS_NAME@@-tmux 2>/dev/null || true
+
+# Native remote session — Ghostty native splits, or iTerm -CC if you're in iTerm.
+@@ALIAS_NAME@@() {
+  case "${TERM_PROGRAM:-}" in
+    ghostty) _amo_ghostty native ;;
+    *)       _amo_iterm ;;
+  esac
+}
+
+# Persistent remote session (survives disconnect). Ghostty: tmux-drawn panes. Under
+# iTerm the default `@@ALIAS_NAME@@` already persists via -CC, so this defers to it.
+@@ALIAS_NAME@@-tmux() {
+  case "${TERM_PROGRAM:-}" in
+    ghostty) _amo_ghostty tmux ;;
+    *) echo "iTerm's @@ALIAS_NAME@@ already persists via tmux -CC — just run: @@ALIAS_NAME@@" >&2 ;;
+  esac
+}
 
 # Ad-hoc forwarding without reconnecting (handles random OAuth callback ports):
 #   @@ALIAS_NAME@@-fwd 54321            forward localhost:54321 ⇄ remote

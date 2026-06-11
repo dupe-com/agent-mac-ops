@@ -3,6 +3,9 @@
 The full setup, including the iTerm2 GUI steps that no amount of config files can do for you.
 This is the part people get stuck on — it took several dead ends to get right, so it's spelled out.
 
+**On Ghostty?** Sections 3–4 are iTerm2-only GUI steps — skip them. Do §1–2, then jump to
+**[§4b. Ghostty](#4b-ghostty-instead-of-or-alongside-iterm2)** (no GUI clicking) and §5 to verify.
+
 Throughout, `<alias>` = the connect command you chose (default `box`), `<host>` = your `REMOTE_HOST`,
 and `<Hostname>` = your `REMOTE_HOSTNAME` (the remote's `hostname -s`).
 
@@ -106,14 +109,53 @@ control-mode protocol. Use iTerm's own shortcuts (`Cmd+D`, `Cmd+T`) after you're
 
 ---
 
+## 4b. Ghostty (instead of, or alongside, iTerm2)
+
+Ghostty has **no `tmux -CC`** — Mitchell's building control mode incrementally (issue #1935) but it
+isn't wired to the GUI yet, so the iTerm trick above can't render a remote tmux as native panes.
+Ghostty's "native" is its *own* GPU splits, so the model is different: `<alias>` opens a new Ghostty
+instance whose **every native split/tab auto-ssh's into the remote**. No GUI clicking, no profiles —
+it's all in `shell-snippet.sh`, and `<alias>` auto-detects your terminal (`$TERM_PROGRAM`), so the
+same command does the right thing in either app.
+
+You get **two commands** (pick per session):
+
+| Command | What you get | Trades off |
+|---|---|---|
+| `<alias>` | Native Ghostty splits — `Cmd+D` / `Cmd+T` each open a **fresh remote shell**, instantly (they ride a shared SSH master, no re-auth). Closest thing to the iTerm feel. | No layout survives disconnect — run `<alias>-tmux`, or `tmux` by hand, when you want that. |
+| `<alias>-tmux` | One window running `tmux attach` — **survives disconnect** and reattaches as you left it. | tmux-drawn panes + tmux keybinds (`Ctrl-b`), not native Ghostty splits. |
+
+### One-time bits
+
+1. **Coloring (the APS replacement).** Ghostty has no Automatic Profile Switching. Instead the remote
+   shell emits an `OSC 11` to tint the background, set by `GHOSTTY_REMOTE_COLOR` in `config.env`
+   (default a dark purple; blank to disable). It's reset on logout by an `EXIT` trap, with a local
+   safety-net reset in `ghostty-connect.sh` for hard drops — because, unlike iTerm APS, **Ghostty
+   won't auto-revert the color.** Re-run `./setup.sh render && ./setup.sh remote` after changing it.
+2. **Terminfo.** `<alias>` launches Ghostty with `shell-integration-features=ssh-env,ssh-terminfo`
+   (Ghostty ≥ 1.2.0), which installs Ghostty's terminfo on the remote so you never hit
+   `missing or unsuitable terminal: xterm-ghostty`. Nothing to configure.
+3. **Forwards / browser handoff.** The first connection opens a shared SSH master carrying the same
+   `-R`/`-L` forwards as the iTerm path, and every split rides it — so handoff and port forwarding
+   work identically. (If you run `<alias>-fwd` *before* `<alias>` in a session, it makes a
+   forward-less master first; just run `<alias>` once to establish the tunnel.)
+
+That's it — no profile to create, no APS rule, none of §3 above. Skip to §5 to verify.
+
+---
+
 ## 5. Verify
 
 ```bash
 <alias>
 ```
 
-You should get a native iTerm2 window, resizable, colored as `Remote`, sitting in your `WORK_DIR` on
-the remote. `Cmd+D` splits a pane that's also on the remote.
+**iTerm2:** a native iTerm2 window, resizable, colored as `Remote`, sitting in your `WORK_DIR` on the
+remote. `Cmd+D` splits a pane that's also on the remote.
+
+**Ghostty:** a new Ghostty window tinted with `GHOSTTY_REMOTE_COLOR`, sitting on the remote. `Cmd+D`
+opens a native split that auto-ssh's into the remote (near-instant — it rides the shared master).
+`<alias>-tmux` instead gives you a persistent tmux session.
 
 ```bash
 control/ops/bin/remote-run.sh status.sh
@@ -155,6 +197,10 @@ ports (including random OAuth callbacks). Full details, recipes, and the securit
 | Stuck on raw `%output … %layout-change …` text | You attached twice. Close the extra window; press `q`/`Ctrl-C`/Enter in the gateway to recover. Connect once and use iTerm shortcuts. |
 | A **`tmux`** profile keeps reappearing after you delete it | Expected — iTerm2 recreates it on every `-CC` connect as the base profile. Don't fight it; color it (see above) instead. |
 | `could not reach <host>` in the digest | SSH/network. Test `ssh <host> true`; check Tailscale is up on both ends and Remote Login is on. |
+| **(Ghostty)** `missing or unsuitable terminal: xterm-ghostty` | terminfo not installed on the remote. `<alias>` passes `ssh-terminfo` automatically (needs Ghostty ≥ 1.2.0); for a manual ssh, run `ghostty +ssh-cache` or set `shell-integration-features = ssh-env,ssh-terminfo` in `~/.config/ghostty/config`. |
+| **(Ghostty)** background **stays tinted** after you disconnect | A hard ssh drop skipped the reset. Open a fresh `<alias>` split (each surface resets its own background), or set `GHOSTTY_REMOTE_COLOR=""` to disable tinting. |
+| **(Ghostty)** new splits are **local**, not on the remote | You opened the split in a *different* Ghostty window/instance than the one `<alias>` launched. The auto-ssh only applies to surfaces inside the instance `<alias>` opened (its `command` is per-instance). |
+| **(Ghostty)** `<alias>` did nothing / "couldn't launch Ghostty" | Ghostty isn't installed where `open -na Ghostty` can find it. Install it, or use iTerm2 — `<alias>` falls back to the iTerm path automatically when `$TERM_PROGRAM` isn't `ghostty`. |
 
 > All of the above is **per-machine iTerm2 GUI state** — it can't be shipped in this repo. A rebuilt
 > Mac needs steps 3–4 redone. Everything else (`config.env`, scripts, dev-session.sh) is reproducible

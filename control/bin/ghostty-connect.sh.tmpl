@@ -1,0 +1,34 @@
+#!/bin/bash
+# agent-mac-ops — connect ONE Ghostty surface to the remote (rendered by setup.sh).
+#
+# Ghostty runs this as its `command`, so EVERY native split/tab you open (Cmd+D /
+# Cmd+T) re-runs it and auto-ssh's into the remote. That's the closest Ghostty
+# gets to iTerm's `tmux -CC` native panes — except here the panes are Ghostty's
+# own (GPU-native, resizable) and each is an independent remote shell.
+#
+#   ghostty-connect.sh native   fresh remote login shell, no tmux     ← `@@ALIAS_NAME@@`
+#   ghostty-connect.sh tmux     attach the persistent tmux session    ← `@@ALIAS_NAME@@-tmux`
+#
+# All surfaces share ONE multiplexed SSH master (same ControlPath as box-fwd), so
+# splits open instantly with no re-auth and the master alone carries the port
+# forwards / browser-handoff reverse tunnel — no per-split forward conflicts. The
+# master is created (with forwards) by the `@@ALIAS_NAME@@` shell function before
+# Ghostty launches; ControlMaster=auto here just reuses it (or makes a plain one
+# if it died — forwards degrade, the shell still works).
+set -uo pipefail
+ROOT="@@ROOT@@"
+[ -f "$ROOT/config.env" ] && . "$ROOT/config.env"
+HOST="${REMOTE_HOST:-@@REMOTE_HOST@@}"
+CP="$HOME/.ssh/cm-%r@%h:%p"
+
+case "${1:-native}" in
+  tmux) REMOTE_MODE="ghostty-tmux" ;;
+  *)    REMOTE_MODE="ghostty-native" ;;
+esac
+
+ssh -t -o ControlMaster=auto -o ControlPath="$CP" -o ControlPersist=4h \
+    "$HOST" "~/dev-session.sh $REMOTE_MODE"
+
+# Safety net: if ssh died without the remote shell's EXIT trap resetting the
+# background, clear the tint locally so nothing is left remote-colored.
+[ -n "${GHOSTTY_REMOTE_COLOR:-}" ] && printf '\033]111\a'

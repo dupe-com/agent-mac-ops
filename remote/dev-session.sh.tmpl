@@ -1,12 +1,26 @@
 #!/bin/zsh
 # agent-mac-ops dev session (lives on the remote; rendered + pushed by setup.sh).
 #
-# `tmux -CC` is control mode: iTerm2 renders the remote tmux session as NATIVE
-# iTerm windows/panes/tabs — resizable, with real Cmd+D / Cmd+T splits that are
-# actually connected to the remote. Plain `tmux attach` gives you a full-screen
-# tmux with tmux keybinds and no native panes; -CC is what gives the native feel.
-# Connect ONCE per session; use iTerm shortcuts after (re-running spawns a 2nd client).
+# Called as:  dev-session.sh [mode]
+#   (none)|iterm     iTerm2 control mode — `tmux -CC attach` renders the remote tmux
+#                    session as NATIVE iTerm windows/panes that reattach. -CC is an
+#                    iTerm2-only protocol; this is the classic path.
+#   ghostty-native   Ghostty has no -CC, so its "native" is Ghostty's OWN splits —
+#                    each surface gets a fresh remote login shell (no tmux layout).
+#                    The auto-ssh-per-split is driven from control/bin/ghostty-connect.sh.
+#   ghostty-tmux     Ghostty + persistence: plain `tmux attach` (tmux-drawn panes,
+#                    tmux keybinds) so the session survives disconnect.
+#
+# Connect ONCE per iTerm session; use iTerm shortcuts after (re-running -CC spawns a
+# 2nd client). For Ghostty, every native split runs this fresh — that's the point.
 export PATH=/opt/homebrew/bin:/usr/local/bin:$PATH
+
+# If the client's TERM has no terminfo entry here, fall back to a universally
+# present one. A missing entry (e.g. xterm-ghostty when Ghostty's terminfo isn't
+# installed on this Mac) breaks ZLE cursor addressing and shows up as garbled or
+# DOUBLED keystrokes. `setup.sh remote` tries to install xterm-ghostty for full
+# fidelity; this guard keeps things sane either way.
+infocmp "$TERM" >/dev/null 2>&1 || export TERM=xterm-256color
 
 # Browser handoff: if the `open` shim was pushed (./setup.sh remote with handoff
 # enabled), route http(s) URLs opened in this session back to the control Mac.
@@ -16,8 +30,33 @@ export PATH=/opt/homebrew/bin:/usr/local/bin:$PATH
 SESSION="@@TMUX_SESSION@@"
 WORK_DIR="@@WORK_DIR@@"
 WORK_DIR="${WORK_DIR/#\~/$HOME}"   # expand a leading ~ on the remote
+MODE="${1:-iterm}"
 
-tmux has-session -t "$SESSION" 2>/dev/null && exec tmux -CC attach -t "$SESSION"
+# Ghostty replacement for iTerm's Automatic Profile Switching: tint THIS surface's
+# background so the remote is unmistakable, then reset on exit. The escape travels
+# back over the ssh pty to your local Ghostty. Unlike iTerm APS, Ghostty won't
+# auto-revert, so the EXIT trap clears it (control/bin/ghostty-connect.sh adds a
+# local safety-net for hard drops). We DON'T exec the shell/tmux in the Ghostty
+# modes so the trap can still fire when it exits.
+REMOTE_COLOR="@@GHOSTTY_REMOTE_COLOR@@"
+tint()   { [ -n "$REMOTE_COLOR" ] && printf '\033]11;%s\a' "$REMOTE_COLOR"; }
+untint() { [ -n "$REMOTE_COLOR" ] && printf '\033]111\a'; }
 
-tmux new-session -d -s "$SESSION" -c "$WORK_DIR"
-exec tmux -CC attach -t "$SESSION"
+case "$MODE" in
+  ghostty-native)
+    export COLORTERM=truecolor   # client is Ghostty → keep 24-bit color even on the xterm-256color fallback
+    tint; trap untint EXIT INT TERM
+    cd "$WORK_DIR" 2>/dev/null || cd "$HOME"
+    "${SHELL:-/bin/zsh}" -l ;;
+
+  ghostty-tmux)
+    export COLORTERM=truecolor
+    tint; trap untint EXIT INT TERM
+    tmux has-session -t "$SESSION" 2>/dev/null || tmux new-session -d -s "$SESSION" -c "$WORK_DIR"
+    tmux attach -t "$SESSION" ;;
+
+  *)  # iterm / default — control mode, native iTerm panes
+    tmux has-session -t "$SESSION" 2>/dev/null && exec tmux -CC attach -t "$SESSION"
+    tmux new-session -d -s "$SESSION" -c "$WORK_DIR"
+    exec tmux -CC attach -t "$SESSION" ;;
+esac

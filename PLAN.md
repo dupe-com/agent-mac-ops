@@ -1,7 +1,10 @@
 # agent-mac-ops — scope / plan
 
-> Status: **v1 BUILT (2026-06-11).** Public open-source target. Local git repo, 2 commits, not yet pushed to GitHub.
-> Decisions resolved: iTerm2-only (clean/honest, ops half portable); runbook = `AGENTS.md` (cross-tool).
+> Status: **v1 BUILT (2026-06-11).** Public open-source target. Local git repo, pushed to GitHub.
+> **v1.1 (2026-06-11): Ghostty support added** — `box` auto-detects iTerm2 vs Ghostty; Ghostty uses
+> native splits (each auto-ssh's via a shared SSH master) + `box-tmux` for a persistent session, with
+> OSC-11 tinting standing in for iTerm's APS and remote terminfo install to fix keystroke doubling.
+> Decisions resolved: cross-terminal (iTerm2 + Ghostty), ops half portable; runbook = `AGENTS.md` (cross-tool).
 > Tier 2 remote-auth feature added (port forwarding + browser handoff) per user request.
 >
 > Built so far: README, SETUP.md, docs/REMOTE-AUTH.md, config.env.example, setup.sh (init/remote),
@@ -12,7 +15,8 @@
 
 ## What it is (one line)
 A drop-in `ops/` folder + connection recipe that turns any always-on Mac into something you
-operate by talking to Claude ("check on my box") and connect to as native, resizable iTerm panes.
+operate by talking to Claude ("check on my box") and connect to as native, resizable panes —
+iTerm2 (`tmux -CC`) or Ghostty (native splits), auto-detected.
 
 ## Origin
 Extracted from a private dotfiles repo (`github.com/i8ramin/sys-dotfiles`). Only the two genuinely
@@ -26,16 +30,17 @@ novel, hard-won pieces are being packaged:
 ```
 agent-mac-ops/
 ├── README.md                 # the pitch + 60-second quickstart
-├── SETUP.md                  # the iTerm2 GUI clicks (the part everyone gets stuck on)
+├── SETUP.md                  # the iTerm2 GUI clicks (the part everyone gets stuck on) + §4b Ghostty
 ├── config.env.example        # all the knobs; copied → config.env (gitignored)
 ├── setup.sh                  # prompts, templatizes, optionally preps the remote over SSH
 ├── control/                  # lives on your laptop
-│   ├── shell-snippet.sh      # the `box` alias + ITERM_ENABLE_SHELL_INTEGRATION_WITH_TMUX=1
+│   ├── shell-snippet.sh      # `box`/`box-tmux` (terminal-detecting) + ITERM_ENABLE_SHELL_INTEGRATION_WITH_TMUX=1
+│   ├── bin/ghostty-connect.sh # Ghostty's per-surface auto-ssh launcher (native | tmux)
 │   └── ops/                  # the agent runbook — point Claude/Codex at this folder
 │       ├── AGENTS.md         # generic twin of studio-ops/CLAUDE.md
 │       └── bin/{status,logs,revive,daily-check}.sh
 └── remote/
-    └── dev-session.sh        # scp'd to the always-on Mac; the tmux -CC entrypoint
+    └── dev-session.sh        # scp'd to the always-on Mac; iTerm -CC / Ghostty native / Ghostty tmux modes
 ```
 
 ## What gets templatized (the de-personalizing)
@@ -81,17 +86,17 @@ so it works over any SSH reachability; Tailscale is just one suggested way to ge
 ## Effort & risks
 - **Effort:** ~an afternoon once the two open questions are decided (scripts already exist in
   the private repo; the work is genericizing + the SETUP.md screenshots).
-- **Main risk / honesty note:** the killer feature (native colored iTerm windows) is **iTerm2 + macOS
-  only** — `tmux -CC` is an iTerm2 protocol (WezTerm partial, Terminal.app none). README must be
-  upfront: macOS + iTerm2 required for the native-window magic; the agent-ops half
-  (status/logs/revive/webhook) is portable to any SSH host.
+- **Main risk / honesty note:** the killer feature (native colored remote windows) needs **macOS +
+  iTerm2 or Ghostty**. iTerm2 uses `tmux -CC` (WezTerm partial, Terminal.app none); Ghostty has no
+  `-CC` so it uses native splits that each auto-ssh (≥ 1.2.0 for the ssh-terminfo fix). README is
+  upfront about this; the agent-ops half (status/logs/revive/webhook) is portable to any SSH host.
 - **Naming:** `agent-mac-ops`; tagline "operate your always-on Mac with Claude."
 
-## Open questions to resolve before building
-1. **iTerm2-only vs cross-terminal?** iTerm2-only is clean + honest. Cross-terminal is much messier
-   and dilutes the gem. Leaning iTerm2-only with a clearly-scoped portable ops half.
-2. **Runbook target: `AGENTS.md` (cross-tool: Claude Code, Codex, Cursor) vs `CLAUDE.md`?**
-   Leaning `AGENTS.md` for public reach.
+## Open questions (resolved)
+1. **iTerm2-only vs cross-terminal?** → **Cross-terminal.** Shipped iTerm2-only in v1, added Ghostty in
+   v1.1. `box` auto-detects `$TERM_PROGRAM`; the iTerm path is untouched, so it stayed clean + honest.
+2. **Runbook target: `AGENTS.md` (cross-tool: Claude Code, Codex, Cursor) vs `CLAUDE.md`?** →
+   `AGENTS.md`, for public reach.
 
 ## Source material (private repo, for the build session)
 - `~/dotfiles/studio-ops/CLAUDE.md` → becomes `control/ops/AGENTS.md`

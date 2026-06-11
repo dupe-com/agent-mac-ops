@@ -1,6 +1,7 @@
 # Rendered from *.tmpl by setup.sh — machine-specific, never committed.
 config.env
 control/shell-snippet.sh
+control/bin/ghostty-connect.sh
 remote/dev-session.sh
 remote/open-handoff.sh
 
