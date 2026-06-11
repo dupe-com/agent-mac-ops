@@ -144,6 +144,38 @@ That's it — no profile to create, no APS rule, none of §3 above. Skip to §5 
 
 ---
 
+## 4c. mosh — snappy typing on a laggy link (either terminal)
+
+Typing over SSH has no local echo: every keystroke round-trips to the remote and back, so your
+felt latency is your network RTT. On a high-latency or jittery link that's the difference between
+"native" and "sluggish." **mosh** fixes it with *predictive local echo* — characters appear instantly
+and reconcile with the server asynchronously. It's the one thing that beats the round-trip floor.
+
+```bash
+<alias>-mosh
+```
+
+Works in **both** iTerm2 and Ghostty (it's a normal full-screen CLI session, not `-CC` or native
+splits). The trade-offs and how it fits:
+
+- **Single session, not native panes.** mosh can't do `tmux -CC` or shared-master splits, so
+  `<alias>-mosh` runs `tmux attach` *inside* mosh — you get persistence + panes via tmux keybinds
+  (`Ctrl-b`), and the session survives disconnect (mosh reconnects automatically when you roam).
+- **Forwards/handoff still work.** mosh can't carry `-R`/`-L` forwards, but `<alias>-mosh` first
+  brings up the same detached SSH master the other modes use (it holds the browser-handoff reverse
+  tunnel + `FORWARD_PORTS`), so port forwarding and remote-auth handoff are unaffected.
+- **Requirements:** mosh on both ends (`./setup.sh remote` installs it on the remote and records the
+  `mosh-server` path in `config.env`; `brew install mosh` locally), and **UDP 60000–61000** reachable
+  between the two. Tailscale carries UDP, so it works out of the box over a tailnet; on a plain LAN/VPN
+  make sure those UDP ports aren't firewalled. The initial handshake still uses SSH (your existing
+  keys/aliases), then it hands off to UDP.
+- **Tinting:** mosh has its own terminal model and may not pass the `GHOSTTY_REMOTE_COLOR` background
+  tint through — the tmux session + window title still mark it as the remote.
+
+Re-source your shell snippet (or open a new terminal) after `./setup.sh remote` so `<alias>-mosh` is defined.
+
+---
+
 ## 5. Verify
 
 ```bash
@@ -156,6 +188,10 @@ remote. `Cmd+D` splits a pane that's also on the remote.
 **Ghostty:** a new Ghostty window tinted with `GHOSTTY_REMOTE_COLOR`, sitting on the remote. `Cmd+D`
 opens a native split that auto-ssh's into the remote (near-instant — it rides the shared master).
 `<alias>-tmux` instead gives you a persistent tmux session.
+
+**`<alias>-mosh` (either terminal):** a full-screen tmux session over mosh — type and characters appear
+instantly even on a laggy link (predictive echo). If it hangs at connect, it's almost always UDP
+60000–61000 being blocked (see §4c).
 
 ```bash
 control/ops/bin/remote-run.sh status.sh
@@ -201,6 +237,9 @@ ports (including random OAuth callbacks). Full details, recipes, and the securit
 | **(Ghostty)** background **stays tinted** after you disconnect | A hard ssh drop skipped the reset. Open a fresh `<alias>` split (each surface resets its own background), or set `GHOSTTY_REMOTE_COLOR=""` to disable tinting. |
 | **(Ghostty)** new splits are **local**, not on the remote | You opened the split in a *different* Ghostty window/instance than the one `<alias>` launched. The auto-ssh only applies to surfaces inside the instance `<alias>` opened (its `command` is per-instance). |
 | **(Ghostty)** `<alias>` did nothing / "couldn't launch Ghostty" | Ghostty isn't installed where `open -na Ghostty` can find it. Install it, or use iTerm2 — `<alias>` falls back to the iTerm path automatically when `$TERM_PROGRAM` isn't `ghostty`. |
+| **(mosh)** `<alias>-mosh` hangs at "Connecting…" then times out | UDP 60000–61000 blocked between you and the remote. Over Tailscale it should just work; on a plain network open those UDP ports. The SSH handshake working but UDP not = this. |
+| **(mosh)** `mosh-server: command not found` | The remote `mosh-server` path isn't pinned. Re-run `./setup.sh remote` (it discovers it and bakes `MOSH_SERVER` into `config.env`), or `brew install mosh` on the remote. |
+| **(mosh)** typing is snappy but the **background isn't tinted** | Expected — mosh's terminal model may drop the OSC-11 tint. The tmux session + window title still mark it as remote. |
 
 > All of the above is **per-machine iTerm2 GUI state** — it can't be shipped in this repo. A rebuilt
 > Mac needs steps 3–4 redone. Everything else (`config.env`, scripts, dev-session.sh) is reproducible

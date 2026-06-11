@@ -17,6 +17,7 @@ render() {
       -e "s|@@HANDOFF_PORT@@|${HANDOFF_PORT}|g" \
       -e "s|@@HANDOFF_TOKEN@@|${HANDOFF_TOKEN}|g" \
       -e "s|@@GHOSTTY_REMOTE_COLOR@@|${GHOSTTY_REMOTE_COLOR:-}|g" \
+      -e "s|@@MOSH_SERVER@@|${MOSH_SERVER:-}|g" \
       "$1"
 }
 
@@ -73,6 +74,7 @@ TMUX_SESSION="$TMUX_SESSION"
 ALIAS_NAME="$ALIAS_NAME"
 PROFILE_NAME="$PROFILE_NAME"
 GHOSTTY_REMOTE_COLOR="$GHOSTTY_REMOTE_COLOR"
+MOSH_SERVER="${MOSH_SERVER:-}"
 FORWARD_PORTS="$FORWARD_PORTS"
 HANDOFF_ENABLED="$HANDOFF_ENABLED"
 HANDOFF_PORT="$HANDOFF_PORT"
@@ -112,6 +114,7 @@ EOF
   remote)
     [ -f "$ROOT/config.env" ] || { echo "run ./setup.sh first" >&2; exit 1; }
     . "$ROOT/config.env"
+    build_forwards   # render_all (after mosh discovery) needs SSH_FORWARDS
     [ -f "$ROOT/remote/dev-session.sh" ] || { echo "missing remote/dev-session.sh — run ./setup.sh" >&2; exit 1; }
     echo "pushing to $REMOTE_HOST ..."
     scp "$ROOT/remote/dev-session.sh" "$REMOTE_HOST:~/dev-session.sh"
@@ -143,6 +146,28 @@ EOF
     else
       echo "ℹ️  no local xterm-ghostty terminfo found — Ghostty sessions use xterm-256color (fine)"
     fi
+    # mosh: power the `*-mosh` command (predictive-echo typing for laggy links).
+    # Ensure mosh-server exists on the remote and record its absolute path — macOS
+    # Homebrew installs it outside ssh's non-interactive PATH, so the launcher pins
+    # it via --server. Best-effort; the *-mosh command is optional.
+    MS="$(ssh "$REMOTE_HOST" 'command -v mosh-server 2>/dev/null' || true)"
+    if [ -z "$MS" ]; then
+      echo "ℹ️  installing mosh on $REMOTE_HOST (for the '$ALIAS_NAME-mosh' command)…"
+      ssh "$REMOTE_HOST" 'command -v brew >/dev/null && brew install mosh >/dev/null 2>&1 || true'
+      MS="$(ssh "$REMOTE_HOST" 'command -v mosh-server 2>/dev/null' || true)"
+    fi
+    if [ -n "$MS" ]; then
+      if grep -q '^MOSH_SERVER=' "$ROOT/config.env"; then
+        sed -i '' "s|^MOSH_SERVER=.*|MOSH_SERVER=\"$MS\"|" "$ROOT/config.env"
+      else
+        echo "MOSH_SERVER=\"$MS\"" >> "$ROOT/config.env"
+      fi
+      MOSH_SERVER="$MS"; render_all
+      echo "✅ mosh-server at $MS — '$ALIAS_NAME-mosh' ready (snippet re-rendered)"
+    else
+      echo "⚠️  no mosh-server on $REMOTE_HOST — '$ALIAS_NAME-mosh' will try the default PATH (may fail; brew install mosh on the remote)"
+    fi
+
     if [ "${HANDOFF_ENABLED:-true}" = "true" ] && [ -f "$ROOT/remote/open-handoff.sh" ]; then
       ssh "$REMOTE_HOST" 'mkdir -p ~/bin'
       scp "$ROOT/remote/open-handoff.sh" "$REMOTE_HOST:~/bin/open"

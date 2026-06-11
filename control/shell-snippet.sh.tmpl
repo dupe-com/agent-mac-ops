@@ -5,6 +5,8 @@
 #               auto-ssh's into the remote. Ghostty has no -CC; this is the closest
 #               native equivalent. `@@ALIAS_NAME@@-tmux` trades native splits for a
 #               persistent tmux session that survives disconnect. See SETUP.md.
+# `@@ALIAS_NAME@@-mosh` (either terminal) trades native panes for mosh's predictive
+# local echo — the fix for laggy typing on a high-latency link.
 #
 # Source this from ~/.zshrc, BEFORE your iTerm2 shell-integration line: iTerm2's
 # shell integration self-disables inside tmux (when $TERM is tmux/screen), so
@@ -68,6 +70,22 @@ unalias @@ALIAS_NAME@@ @@ALIAS_NAME@@-tmux 2>/dev/null || true
     ghostty) _amo_ghostty tmux ;;
     *) echo "iTerm's @@ALIAS_NAME@@ already persists via tmux -CC — just run: @@ALIAS_NAME@@" >&2 ;;
   esac
+}
+
+# Snappy typing over a laggy link: mosh adds PREDICTIVE LOCAL ECHO — characters
+# appear instantly and reconcile with the server async, the one thing that beats the
+# SSH round-trip floor. It's a single UDP session (no -CC, no native splits) and
+# CAN'T carry forwards, so we still bring up the detached SSH master first (it holds
+# browser handoff + FORWARD_PORTS), and mosh runs `tmux attach` inside dev-session so
+# the session survives drops + gives you panes. Works in iTerm and Ghostty alike.
+# Needs mosh on both ends (./setup.sh remote installs it) + UDP 60000-61000 reachable
+# (Tailscale carries it). MOSH_SERVER is the remote mosh-server path baked by setup.sh
+# (macOS Homebrew puts it outside ssh's non-interactive PATH, so we point at it).
+@@ALIAS_NAME@@-mosh() {
+  command -v mosh >/dev/null || { echo "@@ALIAS_NAME@@-mosh: mosh not installed locally — brew install mosh" >&2; return 1; }
+  _amo_master
+  local srv="@@MOSH_SERVER@@"
+  mosh ${srv:+--server="$srv"} @@REMOTE_HOST@@ -- /bin/zsh -lc '~/dev-session.sh mosh'
 }
 
 # Ad-hoc forwarding without reconnecting (handles random OAuth callback ports):

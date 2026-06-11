@@ -17,8 +17,9 @@ mode) plus a non-obvious shell-integration flag plus Automatic Profile Switching
 that gives a *native* remote session that also recolors itself. **Ghostty** has no `-CC`, so `box`
 instead opens a Ghostty instance whose native splits each auto-ssh into the remote (tinted via OSC for
 the "not localhost" cue), with `box-tmux` for a persistent session. `box` auto-detects which terminal
-you're in. It's all documented step-by-step in **[SETUP.md](SETUP.md)** — honestly the most valuable
-thing in this repo.
+you're in. On a high-latency link, `box-mosh` connects over [mosh](https://mosh.org) for predictive
+local echo — instant-feeling typing — in either terminal. It's all documented step-by-step in
+**[SETUP.md](SETUP.md)** — honestly the most valuable thing in this repo.
 
 3. **Log in without Screen Sharing.** The classic remote-Mac pain: a CLI opens an auth page *on the
    remote*, and the OAuth callback wants `localhost` — the wrong machine from your laptop. agent-mac-ops
@@ -32,6 +33,8 @@ thing in this repo.
   that each auto-ssh in. `box` auto-detects which you're using. *(The agent-ops half —
   status/logs/revive/digest — is plain SSH + bash and works against any host.)*
 - **tmux** on the remote (`brew install tmux`).
+- **mosh** (optional, for `box-mosh`) on both ends — `./setup.sh remote` installs it on the remote;
+  `brew install mosh` locally. Needs UDP 60000–61000 reachable (Tailscale carries it).
 - **SSH reachability** to the remote. [Tailscale](https://tailscale.com) is the recommended way (no
   public exposure, works from anywhere) but anything your `ssh` can reach is fine — just put a Host
   alias in `~/.ssh/config` and use its name.
@@ -56,6 +59,8 @@ Now:
 - **`box`** (or whatever alias you chose) → native, colored window into the remote (iTerm2 `-CC`
   panes, or Ghostty native splits — auto-detected). Ghostty adds **`box-tmux`** for a persistent
   session that survives disconnect.
+- **`box-mosh`** (either terminal) → connect over mosh for snappy, predictive typing when the link is
+  laggy. Single session + tmux for persistence; forwards/handoff still ride the SSH master.
 - **Point your agent at `control/ops/`** and say *"check on the box."*
 - **Browser handoff:** `control/bin/install-open-listener.sh` so remote auth pages open on your Mac.
 - **Optional:** `control/ops/bin/install-launchd.sh` for a daily health digest.
@@ -68,6 +73,7 @@ control machine (your laptop)                     always-on Mac (the remote)
 shell-snippet.sh  → `box` ───────── ssh -t ───▶   ~/dev-session.sh
    (iTerm2)                                          └─ tmux -CC attach  ──▶ native iTerm2 windows
    (Ghostty) ghostty-connect.sh ─── ssh -t ───▶      └─ login shell / tmux ─▶ native Ghostty splits
+   (mosh)    `box-mosh` ───────── mosh/UDP ────▶      └─ tmux attach ───────▶ predictive-echo session
 control/ops/AGENTS.md  ← your agent reads this
 control/ops/bin/remote-run.sh ── ssh + stdin ──▶   status.sh / logs.sh / revive.sh (run, then gone)
 control/ops/bin/daily-check.sh ── launchd ──▶      webhook digest (Slack/Discord/…)

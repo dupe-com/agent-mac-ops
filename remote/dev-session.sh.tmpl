@@ -10,6 +10,8 @@
 #                    The auto-ssh-per-split is driven from control/bin/ghostty-connect.sh.
 #   ghostty-tmux     Ghostty + persistence: plain `tmux attach` (tmux-drawn panes,
 #                    tmux keybinds) so the session survives disconnect.
+#   mosh             Same persistent tmux attach, reached over mosh (predictive local
+#                    echo) for snappy typing on a laggy link. Terminal-agnostic.
 #
 # Connect ONCE per iTerm session; use iTerm shortcuts after (re-running -CC spawns a
 # 2nd client). For Ghostty, every native split runs this fresh — that's the point.
@@ -49,7 +51,9 @@ case "$MODE" in
     cd "$WORK_DIR" 2>/dev/null || cd "$HOME"
     "${SHELL:-/bin/zsh}" -l ;;
 
-  ghostty-tmux)
+  ghostty-tmux|mosh)
+    # mosh has its own terminal model and may swallow the OSC-11 tint; it's emitted
+    # anyway (harmless) — the persistence + snappy echo are the point of this mode.
     export COLORTERM=truecolor
     tint; trap untint EXIT INT TERM
     tmux has-session -t "$SESSION" 2>/dev/null || tmux new-session -d -s "$SESSION" -c "$WORK_DIR"
