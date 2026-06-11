@@ -1,8 +1,14 @@
 # agent-mac-ops — scope / plan
 
-> Status: **SCOPED, not built.** Public open-source target. Written 2026-06-11.
-> Decisions locked: form = scope-only first; audience = public/open-source.
-> Open calls before building: (a) iTerm2-only vs cross-terminal; (b) `AGENTS.md` vs `CLAUDE.md` for the runbook.
+> Status: **v1 BUILT (2026-06-11).** Public open-source target. Local git repo, 2 commits, not yet pushed to GitHub.
+> Decisions resolved: iTerm2-only (clean/honest, ops half portable); runbook = `AGENTS.md` (cross-tool).
+> Tier 2 remote-auth feature added (port forwarding + browser handoff) per user request.
+>
+> Built so far: README, SETUP.md, docs/REMOTE-AUTH.md, config.env.example, setup.sh (init/remote),
+> control/shell-snippet.sh.tmpl, control/ops/AGENTS.md, control/ops/bin/{remote-run,status,logs,revive,daily-check,install-launchd}.sh,
+> control/bin/{box-fwd.sh,open-listener.py,install-open-listener.sh}, remote/{dev-session,open-handoff}.sh.tmpl, LICENSE (MIT).
+> All scripts syntax-checked; templates render clean; listener token/scheme guards tested (403/400).
+> Not yet done: push to GitHub; real end-to-end test against a live remote + iTerm2 GUI; optional CI/shellcheck.
 
 ## What it is (one line)
 A drop-in `ops/` folder + connection recipe that turns any always-on Mac into something you

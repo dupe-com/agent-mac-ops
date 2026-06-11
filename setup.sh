@@ -1,6 +1,7 @@
 #!/bin/bash
 # agent-mac-ops setup.
 #   ./setup.sh          interactive: write config.env, render templates
+#   ./setup.sh render   re-render templates from an existing config.env (no prompts)
 #   ./setup.sh remote   push dev-session.sh (+ the `open` shim) to the remote
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -90,6 +91,17 @@ EOF
     echo "  6) point your agent at control/ops/ and say:  \"check on $REMOTE_HOST\""
     ;;
 
+  render)
+    [ -f "$ROOT/config.env" ] || { echo "no config.env — run ./setup.sh first" >&2; exit 1; }
+    . "$ROOT/config.env"
+    build_forwards
+    render "$ROOT/control/shell-snippet.sh.tmpl" > "$ROOT/control/shell-snippet.sh"
+    render "$ROOT/remote/dev-session.sh.tmpl"    > "$ROOT/remote/dev-session.sh"
+    render "$ROOT/remote/open-handoff.sh.tmpl"   > "$ROOT/remote/open-handoff.sh"
+    chmod +x "$ROOT/remote/dev-session.sh" "$ROOT/remote/open-handoff.sh"
+    echo "✅ re-rendered shell-snippet.sh, dev-session.sh, open-handoff.sh from config.env"
+    ;;
+
   remote)
     [ -f "$ROOT/config.env" ] || { echo "run ./setup.sh first" >&2; exit 1; }
     . "$ROOT/config.env"
@@ -111,5 +123,5 @@ EOF
     echo "  • keep it awake:  sudo pmset -a sleep 0    (laptop, also: sudo pmset -a disablesleep 1)"
     ;;
 
-  *) echo "usage: ./setup.sh [init|remote]" >&2; exit 1 ;;
+  *) echo "usage: ./setup.sh [init|render|remote]" >&2; exit 1 ;;
 esac
