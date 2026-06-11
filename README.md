@@ -40,7 +40,7 @@ thing in this repo.
 ## Quickstart
 
 ```bash
-git clone https://github.com/<you>/agent-mac-ops && cd agent-mac-ops
+git clone https://github.com/dupe-com/agent-mac-ops && cd agent-mac-ops
 ./setup.sh            # prompts for host, hostname, dirs, alias, webhook → writes config.env
 ./setup.sh remote     # pushes the dev-session launcher to the remote
 
