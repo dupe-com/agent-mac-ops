@@ -94,6 +94,25 @@ your Mac → done. `box-fwd oauth <url>` remains the manual fallback for tools t
 
 ---
 
+## Clipboard images (screenshots → Ctrl+V on the remote)
+
+macOS clipboards are per-machine, and a terminal forwards clipboard **text** only —
+never image bytes. So a screenshot you copy on your laptop never reaches the remote,
+and a tool running there (Claude Code, say) pastes from the **remote's** clipboard,
+which never saw it. Two fixes:
+
+- **`<alias>-clip`** (built in) — copy a screenshot on your Mac (`Cmd+Ctrl+Shift+4`
+  copies to clipboard instead of saving a file), run `<alias>-clip`, then `Ctrl+V`
+  in the remote tool. It extracts the image with `pngpaste`, ships the PNG over SSH,
+  and loads it onto the remote clipboard as an image (via AppleScript — `pbcopy`
+  can't set image flavors). Needs `pngpaste` locally (`brew install pngpaste`).
+- **Apple Universal Clipboard** (no tooling) — if both Macs are on the same Apple ID
+  with Handoff + Bluetooth + Wi-Fi on, copying on one puts it on the other's
+  clipboard automatically, images included; then `Ctrl+V` on the remote just works.
+  Flakier than the explicit push, but zero commands.
+
+Text pastes fine either way (the terminal already forwards it).
+
 ## Recipes
 
 **Local dev server on the remote**

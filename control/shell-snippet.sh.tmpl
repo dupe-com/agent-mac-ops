@@ -93,3 +93,9 @@ unalias @@ALIAS_NAME@@ @@ALIAS_NAME@@-tmux 2>/dev/null || true
 #   @@ALIAS_NAME@@-fwd oauth '<url>'    forward the URL's callback port + open it here
 #   @@ALIAS_NAME@@-fwd cancel 54321     stop forwarding it
 alias @@ALIAS_NAME@@-fwd="@@ROOT@@/control/bin/box-fwd.sh"
+
+# Push your clipboard IMAGE to the remote's clipboard (screenshots → Ctrl+V in a
+# tool running on the remote, e.g. Claude Code). Terminals forward clipboard text
+# only, never image bytes, so this bridges it. Copy a shot (Cmd+Ctrl+Shift+4) then:
+#   @@ALIAS_NAME@@-clip
+alias @@ALIAS_NAME@@-clip="@@ROOT@@/control/bin/clip-push.sh"
