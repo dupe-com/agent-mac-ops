@@ -3,3 +3,7 @@ config.env
 control/shell-snippet.sh
 remote/dev-session.sh
 remote/open-handoff.sh
+
+# python bytecode
+__pycache__/
+*.pyc
