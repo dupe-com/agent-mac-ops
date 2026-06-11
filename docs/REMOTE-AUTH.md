@@ -61,11 +61,22 @@ control/bin/install-open-listener.sh   # launchd agent on 127.0.0.1:$HANDOFF_POR
 ```
 remote dev session                              your Mac
 ──────────────────                              ────────
-tool calls `open https://auth…`
-   └─ ~/bin/open shim ── curl localhost:PORT ──▶ (reverse -R tunnel) ──▶ open-listener.py ──▶ `open` → your browser
+tool calls `open https://auth…?redirect_uri=…localhost:CBPORT…`
+   └─ ~/bin/open shim ── curl localhost:PORT ──▶ (reverse -R tunnel) ──▶ open-listener.py
+                                                                              │ 1. parse CBPORT from the URL,
+                                                                              │    forward -L CBPORT to the remote
+                                                                              └ 2. `open` → your browser
                                                                               ▲
 auth provider 302 → http://localhost:CBPORT ◀── (forward -L CBPORT) ◀──────── your browser consents
 ```
+
+### Auto-forward (no manual `box-fwd` for OAuth)
+OAuth callback ports are usually **random**, so they can't be pre-listed in `FORWARD_PORTS`. The
+listener handles this automatically: before opening a handed-off URL it scans for a `localhost:PORT`
+(in `redirect_uri` or the callback path), and forwards that port to the remote first (via `box-fwd`,
+fired async so the shim's curl still returns fast). By the time you finish consenting, the redirect
+to `localhost:PORT` has a tunnel waiting. So a remote OAuth login is just: trigger it → consent on
+your Mac → done. `box-fwd oauth <url>` remains the manual fallback for tools that bypass the shim.
 
 ### Security
 - The listener binds **127.0.0.1 only** and accepts **http(s) only**.
