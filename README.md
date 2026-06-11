@@ -63,6 +63,8 @@ Now:
   laggy. Single session + tmux for persistence; forwards/handoff still ride the SSH master.
 - **Point your agent at `control/ops/`** and say *"check on the box."*
 - **Browser handoff:** `control/bin/install-open-listener.sh` so remote auth pages open on your Mac.
+- **Clipboard auto-mirror:** `control/bin/install-clip-watch.sh` so screenshots you copy here land on
+  the remote's clipboard automatically — `Ctrl+V` them in a tool on the remote, no command in between.
 - **Optional:** `control/ops/bin/install-launchd.sh` for a daily health digest.
 
 ## How it works

@@ -116,19 +116,25 @@ second to set the destination. Directory trailing-slash follows rsync's rule
 macOS clipboards are per-machine, and a terminal forwards clipboard **text** only —
 never image bytes. So a screenshot you copy on your laptop never reaches the remote,
 and a tool running there (Claude Code, say) pastes from the **remote's** clipboard,
-which never saw it. Two fixes:
+which never saw it. Three options, lowest-friction first:
 
-- **`<alias>-clip`** (built in) — copy a screenshot on your Mac (`Cmd+Ctrl+Shift+4`
-  copies to clipboard instead of saving a file), run `<alias>-clip`, then `Ctrl+V`
-  in the remote tool. It extracts the image with `pngpaste`, ships the PNG over SSH,
-  and loads it onto the remote clipboard as an image (via AppleScript — `pbcopy`
-  can't set image flavors). Needs `pngpaste` locally (`brew install pngpaste`).
-- **Apple Universal Clipboard** (no tooling) — if both Macs are on the same Apple ID
+- **Auto-mirror (zero friction):** `control/bin/install-clip-watch.sh` installs a
+  small launchd watcher that polls your clipboard and, whenever a NEW **image**
+  lands, pushes it to the remote's clipboard automatically. Copy a screenshot
+  (`Cmd+Ctrl+Shift+4`), then `Ctrl+V` on the remote — nothing to run in between.
+  Images only (text already pastes over the terminal); de-duped so a static image
+  isn't re-sent; poll interval is `CLIP_WATCH_INTERVAL`. macOS has no clipboard-
+  change *callback*, so polling is the only way. Stop it with
+  `launchctl unload ~/Library/LaunchAgents/com.agent-mac-ops.clip-watch.plist`.
+- **`<alias>-clip` (on demand):** the same push, run manually — good if you'd rather
+  not have a background watcher. Copy the shot, run `<alias>-clip`, `Ctrl+V`.
+- **Apple Universal Clipboard (native, no tooling):** if both Macs share an Apple ID
   with Handoff + Bluetooth + Wi-Fi on, copying on one puts it on the other's
-  clipboard automatically, images included; then `Ctrl+V` on the remote just works.
-  Flakier than the explicit push, but zero commands.
+  clipboard automatically, images included. Use this if it's reliable for you; the
+  watcher is the deterministic, Apple-ID-free alternative.
 
-Text pastes fine either way (the terminal already forwards it).
+All three need `pngpaste` locally (`brew install pngpaste`) except Universal
+Clipboard. Text pastes fine regardless (the terminal forwards it).
 
 ## Recipes
 
