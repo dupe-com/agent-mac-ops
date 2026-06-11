@@ -8,6 +8,11 @@
 # Connect ONCE per session; use iTerm shortcuts after (re-running spawns a 2nd client).
 export PATH=/opt/homebrew/bin:/usr/local/bin:$PATH
 
+# Browser handoff: if the `open` shim was pushed (./setup.sh remote with handoff
+# enabled), route http(s) URLs opened in this session back to the control Mac.
+# Harmless if absent — only activates when the shim exists.
+[ -x "$HOME/bin/open" ] && { export PATH="$HOME/bin:$PATH"; export BROWSER="$HOME/bin/open"; }
+
 SESSION="@@TMUX_SESSION@@"
 WORK_DIR="@@WORK_DIR@@"
 WORK_DIR="${WORK_DIR/#\~/$HOME}"   # expand a leading ~ on the remote

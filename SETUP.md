@@ -130,6 +130,21 @@ control/ops/bin/install-launchd.sh   # runs daily-check.sh at config.env's CHECK
 
 ---
 
+## 6. Remote auth & localhost forwarding
+
+If you ever log into a CLI/tool on the remote or run a dev server, set this up — it's the difference
+between Screen Sharing and "it just works":
+
+```bash
+control/bin/install-open-listener.sh   # browser handoff: remote auth pages open on YOUR Mac
+```
+
+`FORWARD_PORTS` in `config.env` are forwarded automatically on connect; use `box-fwd` for ad-hoc
+ports (including random OAuth callbacks). Full details, recipes, and the security model are in
+**[docs/REMOTE-AUTH.md](docs/REMOTE-AUTH.md)**.
+
+---
+
 ## Troubleshooting
 
 | Symptom | Cause / fix |

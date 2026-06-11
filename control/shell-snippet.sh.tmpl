@@ -8,4 +8,13 @@
 # is the load-bearing fix that makes the whole thing work.
 export ITERM_ENABLE_SHELL_INTEGRATION_WITH_TMUX=1
 
-alias @@ALIAS_NAME@@="ssh -t @@REMOTE_HOST@@ '~/dev-session.sh'"
+# Connect. @@SSH_FORWARDS@@ carries the reverse tunnel for browser handoff (-R)
+# plus any FORWARD_PORTS (-L), so dev servers and OAuth localhost callbacks on the
+# remote are reachable at your Mac's localhost for the life of the session.
+alias @@ALIAS_NAME@@="ssh -t @@SSH_FORWARDS@@ @@REMOTE_HOST@@ '~/dev-session.sh'"
+
+# Ad-hoc forwarding without reconnecting (handles random OAuth callback ports):
+#   @@ALIAS_NAME@@-fwd 54321            forward localhost:54321 ⇄ remote
+#   @@ALIAS_NAME@@-fwd oauth '<url>'    forward the URL's callback port + open it here
+#   @@ALIAS_NAME@@-fwd cancel 54321     stop forwarding it
+alias @@ALIAS_NAME@@-fwd="@@ROOT@@/control/bin/box-fwd.sh"

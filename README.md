@@ -17,6 +17,11 @@ flag plus iTerm2 Automatic Profile Switching is the only combination that gives 
 session that also recolors itself. The setup is documented step-by-step in **[SETUP.md](SETUP.md)** —
 that doc is honestly the most valuable thing in this repo.
 
+3. **Log in without Screen Sharing.** The classic remote-Mac pain: a CLI opens an auth page *on the
+   remote*, and the OAuth callback wants `localhost` — the wrong machine from your laptop. agent-mac-ops
+   forwards ports automatically and can **hand remote browser opens back to your Mac**, so logins and
+   local dev servers Just Work. See **[docs/REMOTE-AUTH.md](docs/REMOTE-AUTH.md)**.
+
 ## Requirements
 
 - **macOS + iTerm2** on the control machine — for the native-window magic. `tmux -CC` is an iTerm2
@@ -45,6 +50,7 @@ Now:
 
 - **`box`** (or whatever alias you chose) → native, colored iTerm2 window into the remote.
 - **Point your agent at `control/ops/`** and say *"check on the box."*
+- **Browser handoff:** `control/bin/install-open-listener.sh` so remote auth pages open on your Mac.
 - **Optional:** `control/ops/bin/install-launchd.sh` for a daily health digest.
 
 ## How it works
@@ -57,6 +63,8 @@ shell-snippet.sh  → alias `box` ─── ssh -t ───▶   ~/dev-session.
 control/ops/AGENTS.md  ← your agent reads this
 control/ops/bin/remote-run.sh ── ssh + stdin ──▶   status.sh / logs.sh / revive.sh (run, then gone)
 control/ops/bin/daily-check.sh ── launchd ──▶      webhook digest (Slack/Discord/…)
+open-listener.py  ◀── reverse tunnel (-R) ─────    ~/bin/open shim (opens auth URLs on your Mac)
+your localhost:3000  ◀── forward (-L) ─────────    remote dev server / OAuth callback
 ```
 
 - **Config lives in one file.** `config.env` (gitignored, written by `setup.sh`) holds the host,
