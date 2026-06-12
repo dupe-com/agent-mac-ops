@@ -172,6 +172,34 @@ splits). The trade-offs and how it fits:
 - **Tinting:** mosh has its own terminal model and may not pass the `GHOSTTY_REMOTE_COLOR` background
   tint through — the tmux session + window title still mark it as the remote.
 
+### Why no native panes (and the tmux keybinds you use instead)
+
+iTerm's native panes come from tmux `-CC` control mode, which needs a *transparent byte pipe* between
+tmux and iTerm. mosh doesn't provide one — `mosh-client` is its own terminal emulator that syncs screen
+*state* over UDP, so tmux's control sequences never reach iTerm. The two are fundamentally incompatible;
+there's no flag that bridges them. That trade — native panes for predictive echo — is the whole reason
+`<alias>-mosh` is a separate command. So inside it you split/navigate with tmux's own keybinds
+(default prefix `Ctrl-b`):
+
+| Action | Keys |
+|--------|------|
+| Split **vertically** (panes side-by-side) | `Ctrl-b %` |
+| Split **horizontally** (panes stacked) | `Ctrl-b "` |
+| Move between panes | `Ctrl-b ←/↑/→/↓` (or `Ctrl-b o` to cycle) |
+| New window (≈ new tab) | `Ctrl-b c` |
+| Next / previous window | `Ctrl-b n` / `Ctrl-b p` |
+| Jump to window *N* | `Ctrl-b <0-9>` |
+| Zoom the current pane (toggle fullscreen) | `Ctrl-b z` |
+| Close the pane | `Ctrl-b x` (confirm `y`) |
+| Detach (leave it running, reattach later) | `Ctrl-b d` |
+| Scroll / copy mode (then arrows/PgUp; `q` to exit) | `Ctrl-b [` |
+
+New panes and windows inherit the **active pane's cwd** — the `command-alias` fix in `dev-session.sh`
+rewrites the built-in `split-window`/`new-window`, so `Ctrl-b %`/`"` open where you were, not `$HOME`.
+
+> Prefer native iTerm panes? Use the default `<alias>` (it persists via `-CC`). Reach for `<alias>-mosh`
+> only when the link is laggy enough that predictive echo is worth giving up native panes.
+
 Re-source your shell snippet (or open a new terminal) after `./setup.sh remote` so `<alias>-mosh` is defined.
 
 ---
