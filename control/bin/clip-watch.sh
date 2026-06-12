@@ -11,6 +11,9 @@
 # static image clipboard isn't re-pushed. Pushes ride the shared SSH master, so each
 # transfer reuses one connection.
 set -uo pipefail
+# launchd runs with a bare PATH (/usr/bin:/bin:…) that omits Homebrew, so pngpaste/
+# mosh/etc. won't resolve. Put Homebrew first — same fix dev-session.sh uses.
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 . "$ROOT/config.env"
 INTERVAL="${CLIP_WATCH_INTERVAL:-1.5}"

@@ -5,32 +5,40 @@
 <h1 align="center">agent-mac-ops</h1>
 
 <p align="center">
-  <b>Operate your always-on Mac by talking to an AI agent — and connect to it as native, resizable iTerm2 or Ghostty windows.</b>
+  <b>Operate your always-on Mac by talking to an AI agent — and work on it remotely like you're sitting right in front of it.</b>
 </p>
 
-You have a Mac that stays on (a Studio under the desk, an old MacBook on a shelf). Two things you
-always wished were easy:
+## Features
 
-1. **Drive it from your laptop.** Open a folder, tell Claude/Codex *"check on the box,"* and it SSHes
-   in, reports uptime/disk/load/dev-session health in plain language, and revives a wedged session —
-   no SSH commands typed by you. Plus an optional daily digest to Slack/Discord.
-2. **Actually work on it.** Type one command and the remote opens as **native windows and panes** —
-   resizable, real `Cmd+D` / `Cmd+T` splits connected to the remote, normal keys — and auto-colored
-   so you never confuse it with localhost.
+- 🤖 **Drive it with an AI agent.** Point Claude or Codex at `control/ops/` and say *"check on the box"* —
+  it SSHes in, reports uptime / disk / load / dev-session health in plain language, and revives a wedged
+  session. No SSH commands typed by you.
+- 🖥️ **Native remote terminal sessions.** One command opens the remote as native, resizable panes — real
+  `Cmd+D` / `Cmd+T` splits connected to the remote, normal keys, auto-colored so you never confuse it
+  with localhost. Works in **iTerm2** (`tmux -CC`) and **Ghostty** (native splits), auto-detected.
+  ([how it's done →](SETUP.md))
+- ⚡ **Instant-feeling typing on slow links.** `box-mosh` connects over [mosh](https://mosh.org) for
+  predictive local echo, so characters appear immediately even over high latency.
+- 🔐 **Log in without Screen Sharing.** Remote auth pages open on *your* Mac, and OAuth `localhost`
+  callbacks reach the right machine — ports are forwarded automatically and remote browser opens are
+  handed back to your laptop. ([details →](docs/REMOTE-AUTH.md))
+- 📋 **Clipboard bridge (optional).** Enable `install-clip-watch.sh` and screenshots you copy locally
+  auto-mirror to the remote's clipboard — `Ctrl+V` them straight into a tool running on the remote.
+  Prefer no background watcher? Push on demand with `box-clip`.
+- 📦 **Painless file transfer & forwarding.** `box-push` / `box-pull` move files without typing the host;
+  `box-fwd` forwards ad-hoc ports (including random OAuth callbacks).
+- 📊 **Optional daily health digest** to Slack / Discord / any webhook.
 
-That second part is the hard-won bit, and it differs by terminal. With **iTerm2**, `tmux -CC` (control
-mode) plus a non-obvious shell-integration flag plus Automatic Profile Switching is the only combination
-that gives a *native* remote session that also recolors itself. **Ghostty** has no `-CC`, so `box`
-instead opens a Ghostty instance whose native splits each auto-ssh into the remote (tinted via OSC for
-the "not localhost" cue), with `box-tmux` for a persistent session. `box` auto-detects which terminal
-you're in. On a high-latency link, `box-mosh` connects over [mosh](https://mosh.org) for predictive
-local echo — instant-feeling typing — in either terminal. It's all documented step-by-step in
-**[SETUP.md](SETUP.md)** — honestly the most valuable thing in this repo.
+## The problem
 
-3. **Log in without Screen Sharing.** The classic remote-Mac pain: a CLI opens an auth page *on the
-   remote*, and the OAuth callback wants `localhost` — the wrong machine from your laptop. agent-mac-ops
-   forwards ports automatically and can **hand remote browser opens back to your Mac**, so logins and
-   local dev servers Just Work. See **[docs/REMOTE-AUTH.md](docs/REMOTE-AUTH.md)**.
+You've got a Mac that never sleeps — a Studio under the desk, an old MacBook on a shelf — and you want
+to actually *use* it from your laptop. In practice that means a pile of `ssh` one-liners, Screen Sharing
+that feels like molasses, remote shells that don't behave like local ones, and logins that break because
+the OAuth callback points at the wrong machine. When the dev session wedges, you're the one SSHing in to
+debug it.
+
+agent-mac-ops turns that always-on Mac into something you operate by *talking to an agent* and connect to
+as a native-feeling session — as close to "sitting in front of it" as a remote box gets.
 
 ## Requirements
 
@@ -101,7 +109,7 @@ your localhost:3000  ◀── forward (-L) ─────────    remot
 
 Deliberately small. It does **not** sync dotfiles, manage packages, or sync editor settings — use
 [`chezmoi`](https://github.com/twpayne/chezmoi) / [`yadm`](https://yadm.io) / GNU `stow` for that.
-This repo is just the two things above: agent-operable + native remote session.
+This repo is just the above: agent-operable + a native-feeling remote session.
 
 ## License
 
