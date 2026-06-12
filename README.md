@@ -5,7 +5,7 @@
 <h1 align="center">agent-mac-ops</h1>
 
 <p align="center">
-  <b>Operate your always-on Mac by talking to an AI agent — and work on it remotely like you're sitting right in front of it.</b>
+  <b>Operate your always-on Mac by talking to an AI agent —<br>and work on it remotely like you're sitting right in front of it.</b>
 </p>
 
 ## Features
