@@ -8,6 +8,17 @@
   <b>Operate your always-on Mac by talking to an AI agent —<br>and work on it remotely like you're sitting right in front of it.</b>
 </p>
 
+<p align="center">
+  <a href="#features">Features</a> •
+  <a href="#the-problem">The problem</a> •
+  <a href="#requirements">Requirements</a> •
+  <a href="#quickstart">Quickstart</a> •
+  <a href="#how-it-works">How it works</a> •
+  <a href="#what-this-is-not">What this is not</a>
+</p>
+
+---
+
 ## Features
 
 - 🤖 **Drive it with an AI agent.** Point Claude or Codex at `control/ops/` and say *"check on the box"* —
@@ -30,10 +41,13 @@
   Or `box-code` from a cold laptop shell, no session needed. Reuses the handoff listener.
 - 📦 **Painless file transfer & forwarding.** `box-push` / `box-pull` move files without typing the host;
   `box-fwd` forwards ad-hoc ports (including random OAuth callbacks).
-- 🔪 **Reclaim a busy port in one keypress.** `ports` opens an fzf picker of every local TCP listener —
-  port, PID, owner, and a live preview of the full process — then `Enter` kills the holder (graceful
-  SIGTERM, with SIGKILL escalation if it clings on). `ports 3000` targets one directly. Perfect for the
-  stale dev server or orphaned SSH tunnel squatting on `:3000` before `bun dev`.
+- 🔪 **Reclaim a busy port in one keypress.** Port management grew up and moved into its own project:
+  [**ports-cli**](https://github.com/dupe-com/ports-cli) — an interactive TUI of every local TCP
+  listener, grouped by category and aware of the ssh forwards this repo creates (your forwarded dev
+  server shows as `DEV (SSH)`, not mystery noise). One keypress kills the holder; it also manages
+  auto-reconnecting `kubectl port-forward`s. `brew install dupe-com/tap/ports-cli`. A minimal fzf
+  fallback ships in `control/bin/ports.sh` — the shell snippet only aliases it when ports-cli isn't
+  installed.
 - 📊 **Optional daily health digest** to Slack / Discord / any webhook.
 
 ## The problem
@@ -89,9 +103,10 @@ Now:
 - **Open the remote in your local editor:** inside the session, `code-box` (current dir) opens Cursor/
   VS Code on your Mac in Remote-SSH mode; from a local shell, `box-code [path]`. Needs the handoff
   listener (`install-open-listener.sh`) and the host in your `~/.ssh/config`.
-- **`ports`** → interactive fzf picker of every TCP port being listened on locally, who owns it, and one
-  keypress to kill the holder (Tab = multi-select). `ports 3000` targets a port directly. Local-only —
-  no alias prefix — for clearing a stale dev server or orphaned tunnel before `bun dev`.
+- **`ports`** → see every local TCP listener and kill the holder in one keypress. Install
+  [ports-cli](https://github.com/dupe-com/ports-cli) (`brew install dupe-com/tap/ports-cli`) for the
+  full TUI — it classifies the ssh forwards this repo creates as `DEV (SSH)` instead of system noise.
+  Without it, the shell snippet falls back to the bundled fzf picker (`control/bin/ports.sh`).
 - **Optional:** `control/ops/bin/install-launchd.sh` for a daily health digest.
 
 ## How it works
