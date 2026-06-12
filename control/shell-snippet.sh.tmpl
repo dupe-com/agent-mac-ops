@@ -128,14 +128,12 @@ alias @@ALIAS_NAME@@-pull="@@ROOT@@/control/bin/xfer.sh pull"
 # Interactive LOCAL port manager (not remote-scoped — hence no alias prefix). See
 # every TCP listener, who owns it, and kill it in one keypress — for clearing a
 # stale dev server or orphaned tunnel before `bun dev`.
-# Prefers the full TUI (https://github.com/dupe-com/ports-cli — favorites, watched
-# ports, auto-reconnecting kubectl forwards; `go install
-# github.com/dupe-com/ports-cli/cmd/ports@latest`) and falls back to the bundled
-# fzf script when the binary isn't installed.
+# The full TUI (https://github.com/dupe-com/ports-cli — favorites, watched
+# ports, auto-reconnecting kubectl forwards) installs via
+# `brew install dupe-com/tap/ports-cli` and lands on PATH as `ports`;
+# this only falls back to the bundled fzf script when it isn't installed.
 #   ports            interactive picker/TUI
 #   ports 3000       target one port directly  (TUI build: `ports kill 3000`)
-if [ -x "$HOME/go/bin/ports" ]; then
-  alias ports="$HOME/go/bin/ports"
-else
+if ! command -v ports >/dev/null 2>&1; then
   alias ports="@@ROOT@@/control/bin/ports.sh"
 fi
