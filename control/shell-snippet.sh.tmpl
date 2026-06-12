@@ -125,9 +125,17 @@ alias @@ALIAS_NAME@@-pull="@@ROOT@@/control/bin/xfer.sh pull"
   "$ed" --remote "ssh-remote+@@REMOTE_HOST@@" "$abs"
 }
 
-# Interactive LOCAL port manager (not remote-scoped — hence no alias prefix). An fzf
-# picker of every TCP port being listened on, who owns it, and one keypress to kill
-# the holder — for clearing a stale dev server or orphaned tunnel before `bun dev`.
-#   ports            pick from all listeners (Tab = multi, Enter = kill)
-#   ports 3000       target one port directly: show holder, offer to kill
-alias ports="@@ROOT@@/control/bin/ports.sh"
+# Interactive LOCAL port manager (not remote-scoped — hence no alias prefix). See
+# every TCP listener, who owns it, and kill it in one keypress — for clearing a
+# stale dev server or orphaned tunnel before `bun dev`.
+# Prefers the full TUI (https://github.com/dupe-com/ports-cli — favorites, watched
+# ports, auto-reconnecting kubectl forwards; `go install
+# github.com/dupe-com/ports-cli/cmd/ports@latest`) and falls back to the bundled
+# fzf script when the binary isn't installed.
+#   ports            interactive picker/TUI
+#   ports 3000       target one port directly  (TUI build: `ports kill 3000`)
+if [ -x "$HOME/go/bin/ports" ]; then
+  alias ports="$HOME/go/bin/ports"
+else
+  alias ports="@@ROOT@@/control/bin/ports.sh"
+fi
