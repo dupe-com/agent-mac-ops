@@ -25,7 +25,11 @@ cat > "$PLIST" <<PEOF
     <string>$PORT</string>
   </array>
   <key>EnvironmentVariables</key>
-  <dict><key>HANDOFF_TOKEN</key><string>$TOKEN</string></dict>
+  <dict>
+    <key>HANDOFF_TOKEN</key><string>$TOKEN</string>
+    <key>REMOTE_HOST</key><string>${REMOTE_HOST:-}</string>
+    <key>REMOTE_EDITOR</key><string>${REMOTE_EDITOR:-cursor}</string>
+  </dict>
   <key>KeepAlive</key><true/>
   <key>RunAtLoad</key><true/>
   <key>StandardOutPath</key><string>$HOME/Library/Logs/agent-mac-ops-open-listener.log</string>

@@ -1,0 +1,29 @@
+#!/bin/zsh
+# agent-mac-ops `code-@@ALIAS_NAME@@` shim (lives at ~/bin/code-@@ALIAS_NAME@@ ON THE
+# REMOTE; rendered + pushed by setup.sh, alongside the `open` browser shim). It's the
+# `code .` you'd type locally — but opens Cursor/VS Code ON YOUR LAPTOP in Remote-SSH
+# mode, pointed at a folder here on the remote. So a Claude/Cursor session you start
+# from the remote shell actually runs on your Mac, editing remote files over SSH.
+#
+# How: resolve the target to an ABSOLUTE remote path, then hand it to the listener on
+# your Mac over the reverse tunnel (same token/port as the browser handoff). The Mac
+# runs `cursor --remote ssh-remote+@@REMOTE_HOST@@ <path>`.
+#
+#   code-@@ALIAS_NAME@@            open the current dir (like `code .`)
+#   code-@@ALIAS_NAME@@ apps/web   open a subdir
+#   code-@@ALIAS_NAME@@ ~/Work     open an absolute/~ path
+PORT="@@HANDOFF_PORT@@"
+TOKEN="@@HANDOFF_TOKEN@@"
+
+target="${1:-.}"
+abs="$(cd "$target" 2>/dev/null && pwd)" || {
+  echo "code-@@ALIAS_NAME@@: no such directory: $target" >&2; exit 1; }
+
+if curl -s --max-time 4 "http://localhost:$PORT/cursor" \
+       --data-urlencode "token=$TOKEN" --data-urlencode "path=$abs" >/dev/null 2>&1; then
+  echo "opening your Mac's editor → @@REMOTE_HOST@@:$abs"
+else
+  echo "code-@@ALIAS_NAME@@: can't reach your Mac's listener. Connect the session" >&2
+  echo "  (so the reverse tunnel is up) and install it: control/bin/install-open-listener.sh" >&2
+  exit 1
+fi

@@ -4,6 +4,7 @@ control/shell-snippet.sh
 control/bin/ghostty-connect.sh
 remote/dev-session.sh
 remote/open-handoff.sh
+remote/code-handoff.sh
 
 # python bytecode
 __pycache__/

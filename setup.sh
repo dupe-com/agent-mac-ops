@@ -27,7 +27,9 @@ render_all() {
   render "$ROOT/control/bin/ghostty-connect.sh.tmpl" > "$ROOT/control/bin/ghostty-connect.sh"
   render "$ROOT/remote/dev-session.sh.tmpl"        > "$ROOT/remote/dev-session.sh"
   render "$ROOT/remote/open-handoff.sh.tmpl"       > "$ROOT/remote/open-handoff.sh"
-  chmod +x "$ROOT/control/bin/ghostty-connect.sh" "$ROOT/remote/dev-session.sh" "$ROOT/remote/open-handoff.sh"
+  render "$ROOT/remote/code-handoff.sh.tmpl"       > "$ROOT/remote/code-handoff.sh"
+  chmod +x "$ROOT/control/bin/ghostty-connect.sh" "$ROOT/remote/dev-session.sh" \
+           "$ROOT/remote/open-handoff.sh" "$ROOT/remote/code-handoff.sh"
 }
 
 build_forwards() {
@@ -171,8 +173,9 @@ EOF
     if [ "${HANDOFF_ENABLED:-true}" = "true" ] && [ -f "$ROOT/remote/open-handoff.sh" ]; then
       ssh "$REMOTE_HOST" 'mkdir -p ~/bin'
       scp "$ROOT/remote/open-handoff.sh" "$REMOTE_HOST:~/bin/open"
-      ssh "$REMOTE_HOST" 'chmod +x ~/bin/open'
-      echo "✅ pushed dev-session.sh + ~/bin/open (browser handoff shim)"
+      scp "$ROOT/remote/code-handoff.sh" "$REMOTE_HOST:~/bin/code-$ALIAS_NAME"
+      ssh "$REMOTE_HOST" "chmod +x ~/bin/open ~/bin/code-$ALIAS_NAME"
+      echo "✅ pushed dev-session.sh + ~/bin/open + ~/bin/code-$ALIAS_NAME (handoff shims)"
     else
       echo "✅ pushed dev-session.sh (handoff disabled — no shim)"
     fi

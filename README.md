@@ -25,6 +25,9 @@
 - 📋 **Clipboard bridge (optional).** Enable `install-clip-watch.sh` and screenshots you copy locally
   auto-mirror to the remote's clipboard — `Ctrl+V` them straight into a tool running on the remote.
   Prefer no background watcher? Push on demand with `box-clip`.
+- 🧑‍💻 **`code .` for the remote.** Run `code-box` in the remote session and your laptop's Cursor (or
+  VS Code) opens in Remote-SSH mode at that folder — so the editor runs locally, on the remote's files.
+  Or `box-code` from a cold laptop shell, no session needed. Reuses the handoff listener.
 - 📦 **Painless file transfer & forwarding.** `box-push` / `box-pull` move files without typing the host;
   `box-fwd` forwards ad-hoc ports (including random OAuth callbacks).
 - 📊 **Optional daily health digest** to Slack / Discord / any webhook.
@@ -79,6 +82,9 @@ Now:
 - **Browser handoff:** `control/bin/install-open-listener.sh` so remote auth pages open on your Mac.
 - **Clipboard auto-mirror:** `control/bin/install-clip-watch.sh` so screenshots you copy here land on
   the remote's clipboard automatically — `Ctrl+V` them in a tool on the remote, no command in between.
+- **Open the remote in your local editor:** inside the session, `code-box` (current dir) opens Cursor/
+  VS Code on your Mac in Remote-SSH mode; from a local shell, `box-code [path]`. Needs the handoff
+  listener (`install-open-listener.sh`) and the host in your `~/.ssh/config`.
 - **Optional:** `control/ops/bin/install-launchd.sh` for a daily health digest.
 
 ## How it works

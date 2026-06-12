@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
-"""agent-mac-ops browser-handoff listener (runs on the CONTROL Mac).
+"""agent-mac-ops handoff listener (runs on the CONTROL Mac).
 
-Listens on 127.0.0.1:<port> for URLs forwarded from the remote's `open` shim over
-the reverse SSH tunnel, and opens each on THIS Mac. Only http(s) URLs are honored,
-and a shared token (HANDOFF_TOKEN env) is required, so a stray process on the
-remote's loopback can't make your Mac open arbitrary pages.
+Listens on 127.0.0.1:<port> for requests forwarded from the remote over the reverse
+SSH tunnel, and acts on THIS Mac. Two routes, both token-gated (HANDOFF_TOKEN env)
+so a stray process on the remote's loopback can't drive your Mac:
 
-Auto-forward: when an opened URL carries a localhost callback (e.g. an OAuth
-`redirect_uri=http://localhost:PORT/callback`), that PORT is forwarded to the
+  POST/GET /open    url=<http(s)>   → `open <url>` here (browser handoff)
+  POST/GET /cursor  path=<abs>      → open your local editor in Remote-SSH mode at
+                                      that remote path: `cursor --remote
+                                      ssh-remote+$REMOTE_HOST <path>`. This is the
+                                      `code .` equivalent for the remote — run
+                                      `code-<alias>` in the remote session and your
+                                      laptop's Cursor/VS Code opens that folder.
+
+Auto-forward (/open only): when an opened URL carries a localhost callback (e.g. an
+OAuth `redirect_uri=http://localhost:PORT/callback`), that PORT is forwarded to the
 remote first, so the post-consent redirect to localhost:PORT lands on the remote's
 listener instead of dying on your Mac's loopback. This is what makes remote OAuth
 logins seamless — no manual `box-fwd`.
@@ -17,18 +24,36 @@ logins seamless — no manual `box-fwd`.
 import http.server
 import os
 import re
+import shutil
 import subprocess
 import sys
 import urllib.parse
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else int(os.environ.get("HANDOFF_PORT", "17999"))
 TOKEN = os.environ.get("HANDOFF_TOKEN", "")
+REMOTE_HOST = os.environ.get("REMOTE_HOST", "")
 ALLOWED = ("http://", "https://")
 
 # Repo root from this file: control/bin/open-listener.py → ../../.. = repo root.
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 _BOX_FWD = os.path.join(_ROOT, "control", "bin", "box-fwd.sh")
 _PORT_RE = re.compile(r"localhost:(\d{2,5})\b")
+
+# Editor for the /cursor route. launchd hands us a bare PATH, so resolve a real path
+# rather than trusting `cursor` to be on it: $REMOTE_EDITOR (binary name) if set,
+# else cursor, then the known app-bundle CLIs, then VS Code's `code`.
+def _editor_bin():
+    name = os.environ.get("REMOTE_EDITOR", "cursor")
+    candidates = [
+        shutil.which(name),
+        "/Applications/Cursor.app/Contents/Resources/app/bin/cursor",
+        "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code",
+        shutil.which("code"),
+    ]
+    for c in candidates:
+        if c and os.path.exists(c):
+            return c
+    return None
 
 
 def _autoforward(url):
@@ -57,17 +82,37 @@ def _params(handler):
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
+    def _reply(self, code, body):
+        self.send_response(code); self.end_headers(); self.wfile.write(body)
+
     def _handle(self):
+        route = urllib.parse.urlparse(self.path).path
         q = _params(self)
-        token = (q.get("token") or [""])[0]
-        url = (q.get("url") or [""])[0]
-        if TOKEN and token != TOKEN:
-            self.send_response(403); self.end_headers(); self.wfile.write(b"bad token"); return
+        if TOKEN and (q.get("token") or [""])[0] != TOKEN:
+            return self._reply(403, b"bad token")
+        if route == "/cursor":
+            return self._open_cursor((q.get("path") or [""])[0])
+        return self._open_url((q.get("url") or [""])[0])
+
+    def _open_url(self, url):
         if not url.startswith(ALLOWED):
-            self.send_response(400); self.end_headers(); self.wfile.write(b"only http(s)"); return
+            return self._reply(400, b"only http(s)")
         _autoforward(url)
         subprocess.Popen(["open", url])
-        self.send_response(200); self.end_headers(); self.wfile.write(b"ok")
+        self._reply(200, b"ok")
+
+    def _open_cursor(self, path):
+        # path is the remote's absolute dir; passed as a list arg (no shell → no
+        # injection). It can only ever target the configured REMOTE_HOST.
+        if not path.startswith("/"):
+            return self._reply(400, b"need an absolute remote path")
+        if not REMOTE_HOST:
+            return self._reply(500, b"REMOTE_HOST not set in listener env")
+        editor = _editor_bin()
+        if not editor:
+            return self._reply(500, b"no cursor/code binary found on this Mac")
+        subprocess.Popen([editor, "--remote", "ssh-remote+" + REMOTE_HOST, path])
+        self._reply(200, b"ok")
 
     do_GET = _handle
     do_POST = _handle

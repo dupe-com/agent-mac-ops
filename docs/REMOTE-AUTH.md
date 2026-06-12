@@ -136,6 +136,41 @@ which never saw it. Three options, lowest-friction first:
 All three need `pngpaste` locally (`brew install pngpaste`) except Universal
 Clipboard. Text pastes fine regardless (the terminal forwards it).
 
+## Editor — `code .` for the remote
+
+You're used to `code .` opening your editor in the current folder. On the remote
+that's a trap: it would open the editor **on the remote** (headless, or via Screen
+Sharing). What you actually want is your **laptop's** Cursor/VS Code, in Remote-SSH
+mode, pointed at the remote folder — editor UI local, files remote.
+
+This rides the same handoff listener as the browser bridge (same tunnel, same token):
+
+```bash
+# inside the connected session (the `code .` equivalent — knows your cwd):
+code-<alias>                 # open the current remote dir
+code-<alias> apps/web        # a subdir
+code-<alias> ~/other/repo    # an absolute/~ remote path
+
+# from a LOCAL shell, without connecting a session first:
+<alias>-code                 # opens your configured WORK_DIR on the remote
+<alias>-code apps/web        # a path under WORK_DIR (or pass an absolute/~ path)
+```
+
+How it works: `code-<alias>` is a shim at `~/bin/code-<alias>` on the remote (pushed by
+`./setup.sh remote`, next to the `open` shim). It resolves the target to an absolute
+remote path and POSTs it to the listener on your Mac over the reverse tunnel; the
+listener runs `cursor --remote ssh-remote+<host> <path>`. Cursor then opens its own SSH
+connection to `<host>` and boots a `cursor-server` there — so the host must be a real
+entry in your `~/.ssh/config` (it is, if that's how you connect with `<alias>`).
+
+- **Editor choice:** `REMOTE_EDITOR` in `config.env` (`cursor` default, or `code` for
+  VS Code). The listener also falls back to whichever of the two it can find.
+- **Requirements:** the handoff listener running (`install-open-listener.sh`), an active
+  session (or the SSH master) so the reverse tunnel is up, and Cursor/VS Code with the
+  `cursor`/`code` CLI installed locally (Cursor: ⌘⇧P → "Install 'cursor' command").
+- The remote shim only forwards a path — it can **only** ever open `ssh-remote+<your
+  configured host>`, never an arbitrary destination, and it's token-gated like `open`.
+
 ## Recipes
 
 **Local dev server on the remote**

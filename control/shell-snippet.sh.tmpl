@@ -106,3 +106,21 @@ alias @@ALIAS_NAME@@-clip="@@ROOT@@/control/bin/clip-push.sh"
 #   @@ALIAS_NAME@@-pull ~/Work/app/out.csv        fetch into cwd
 alias @@ALIAS_NAME@@-push="@@ROOT@@/control/bin/xfer.sh push"
 alias @@ALIAS_NAME@@-pull="@@ROOT@@/control/bin/xfer.sh pull"
+
+# Open your LOCAL Cursor/VS Code in Remote-SSH mode at a folder ON THE REMOTE — the
+# `code .` equivalent, run from your laptop without first connecting a session.
+# (Inside a connected session, use `code-@@ALIAS_NAME@@` instead — it knows the cwd.)
+# Defaults to your configured work dir; resolves ~ on the remote via the shared master.
+#   @@ALIAS_NAME@@-code                 open the work dir
+#   @@ALIAS_NAME@@-code apps/web        open a path under the work dir
+#   @@ALIAS_NAME@@-code '~/other'       open an absolute/~ remote path
+@@ALIAS_NAME@@-code() {
+  command -v cursor >/dev/null 2>&1 && local ed=cursor || local ed=code
+  command -v "$ed" >/dev/null 2>&1 || { echo "@@ALIAS_NAME@@-code: no cursor/code CLI on this Mac" >&2; return 1; }
+  _amo_master
+  local req="${1:-@@WORK_DIR@@}"
+  case "$req" in /*|"~"*) : ;; *) req="@@WORK_DIR@@/$req" ;; esac
+  local abs; abs="$(ssh -o ControlPath="$_amo_cp" @@REMOTE_HOST@@ "cd \"$req\" 2>/dev/null && pwd")" \
+    || { echo "@@ALIAS_NAME@@-code: no such directory on @@REMOTE_HOST@@: $req" >&2; return 1; }
+  "$ed" --remote "ssh-remote+@@REMOTE_HOST@@" "$abs"
+}
