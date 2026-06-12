@@ -44,6 +44,19 @@ REMOTE_COLOR="@@GHOSTTY_REMOTE_COLOR@@"
 tint()   { [ -n "$REMOTE_COLOR" ] && printf '\033]11;%s\a' "$REMOTE_COLOR"; }
 untint() { [ -n "$REMOTE_COLOR" ] && printf '\033]111\a'; }
 
+# Make native splits inherit the active pane's directory. iTerm's ⌘D (and Ghostty
+# under tmux) issue a BARE `split-window`/`new-window` over the control channel, so
+# tmux takes the cwd from the ISSUING CLIENT — the GUI app, whose cwd is `/` — not
+# the current pane. (Prefix-key binds can use `-c #{pane_current_path}`, but ⌘D never
+# triggers them.) command-alias rewrites the built-in commands themselves, so even a
+# bare split inherits the pane's path. Non-recursive; stacks harmlessly with any
+# `-c` already on a keybind (last `-c` wins, same value). Global/server option —
+# setting it on each connect is idempotent.
+tmux_inherit_cwd() {
+  tmux set -g "command-alias[100]" "split-window=split-window -c \"#{pane_current_path}\"" 2>/dev/null
+  tmux set -g "command-alias[101]" "new-window=new-window -c \"#{pane_current_path}\"" 2>/dev/null
+}
+
 case "$MODE" in
   ghostty-native)
     export COLORTERM=truecolor   # client is Ghostty → keep 24-bit color even on the xterm-256color fallback
@@ -57,10 +70,11 @@ case "$MODE" in
     export COLORTERM=truecolor
     tint; trap untint EXIT INT TERM
     tmux has-session -t "$SESSION" 2>/dev/null || tmux new-session -d -s "$SESSION" -c "$WORK_DIR"
+    tmux_inherit_cwd
     tmux attach -t "$SESSION" ;;
 
   *)  # iterm / default — control mode, native iTerm panes
-    tmux has-session -t "$SESSION" 2>/dev/null && exec tmux -CC attach -t "$SESSION"
-    tmux new-session -d -s "$SESSION" -c "$WORK_DIR"
+    tmux has-session -t "$SESSION" 2>/dev/null || tmux new-session -d -s "$SESSION" -c "$WORK_DIR"
+    tmux_inherit_cwd
     exec tmux -CC attach -t "$SESSION" ;;
 esac
