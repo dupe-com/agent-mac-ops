@@ -124,3 +124,10 @@ alias @@ALIAS_NAME@@-pull="@@ROOT@@/control/bin/xfer.sh pull"
     || { echo "@@ALIAS_NAME@@-code: no such directory on @@REMOTE_HOST@@: $req" >&2; return 1; }
   "$ed" --remote "ssh-remote+@@REMOTE_HOST@@" "$abs"
 }
+
+# Interactive LOCAL port manager (not remote-scoped — hence no alias prefix). An fzf
+# picker of every TCP port being listened on, who owns it, and one keypress to kill
+# the holder — for clearing a stale dev server or orphaned tunnel before `bun dev`.
+#   ports            pick from all listeners (Tab = multi, Enter = kill)
+#   ports 3000       target one port directly: show holder, offer to kill
+alias ports="@@ROOT@@/control/bin/ports.sh"

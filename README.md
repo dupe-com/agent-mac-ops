@@ -30,6 +30,10 @@
   Or `box-code` from a cold laptop shell, no session needed. Reuses the handoff listener.
 - 📦 **Painless file transfer & forwarding.** `box-push` / `box-pull` move files without typing the host;
   `box-fwd` forwards ad-hoc ports (including random OAuth callbacks).
+- 🔪 **Reclaim a busy port in one keypress.** `ports` opens an fzf picker of every local TCP listener —
+  port, PID, owner, and a live preview of the full process — then `Enter` kills the holder (graceful
+  SIGTERM, with SIGKILL escalation if it clings on). `ports 3000` targets one directly. Perfect for the
+  stale dev server or orphaned SSH tunnel squatting on `:3000` before `bun dev`.
 - 📊 **Optional daily health digest** to Slack / Discord / any webhook.
 
 ## The problem
@@ -85,6 +89,9 @@ Now:
 - **Open the remote in your local editor:** inside the session, `code-box` (current dir) opens Cursor/
   VS Code on your Mac in Remote-SSH mode; from a local shell, `box-code [path]`. Needs the handoff
   listener (`install-open-listener.sh`) and the host in your `~/.ssh/config`.
+- **`ports`** → interactive fzf picker of every TCP port being listened on locally, who owns it, and one
+  keypress to kill the holder (Tab = multi-select). `ports 3000` targets a port directly. Local-only —
+  no alias prefix — for clearing a stale dev server or orphaned tunnel before `bun dev`.
 - **Optional:** `control/ops/bin/install-launchd.sh` for a daily health digest.
 
 ## How it works
