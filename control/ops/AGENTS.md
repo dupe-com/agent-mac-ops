@@ -46,6 +46,35 @@ the human's interactive `-CC` window. Use it instead of sending `q` to the pane.
 3. `revive.sh` for a wedged dev session.
 4. Screen share (macOS Screen Sharing / `open vnc://<host>`) only if something graphical is broken.
 
+## User provisioning
+
+To add a new developer account on the remote Mac:
+
+```bash
+# Provision with key from file (index 2 → 127.0.0.2, mariano.studio):
+./control/bin/provision-user.sh mariano 2 ~/keys/mariano.pub
+
+# Or paste the pubkey interactively:
+./control/bin/provision-user.sh lisa 3
+```
+
+Each user gets their own Unix account, loopback IP (`127.0.0.<index>`), and named
+host (`<username>.studio`) wired into `/etc/hosts`. A LaunchDaemon keeps the loopback
+alias alive across reboots. Everyone's dev servers run on the same standard ports
+(web :3000, api :8080) — no port offsets needed.
+
+To reach a user's dev server from a laptop, forward their loopback IP:
+```bash
+ssh -L 3000:127.0.0.2:3000 -L 8080:127.0.0.2:8080 REMOTE_HOST
+# and add to laptop's /etc/hosts: 127.0.0.2  mariano.studio
+```
+
+Taken indices are recorded in `docs/host-registry.md`. Index 1 is reserved for the
+admin user (127.0.0.1 already exists; no alias or LaunchDaemon needed).
+
+When asked to "add a user to the box": ask for their username, a port offset not in
+`docs/port-registry.md`, and their SSH public key — then run the script above.
+
 ## Notes
 
 - The human connects interactively with the `ALIAS_NAME` shell command (a `tmux -CC`

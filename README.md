@@ -49,6 +49,10 @@
   fallback ships in `control/bin/ports.sh` — the shell snippet only aliases it when ports-cli isn't
   installed.
 - 📊 **Optional daily health digest** to Slack / Discord / any webhook.
+- 👥 **Team provisioning.** One command adds a new developer account with their own named host
+  (`alice.studio`, `bob.studio` …) and loopback IP — everyone's dev servers run on standard ports
+  (`:3000`, `:8080`) without conflicts. A LaunchDaemon keeps the network alias alive across reboots.
+  ([details →](SETUP.md#7-team-provisioning))
 
 ## The problem
 

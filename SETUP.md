@@ -251,6 +251,99 @@ ports (including random OAuth callbacks). Full details, recipes, and the securit
 
 ---
 
+## 7. Team provisioning
+
+If the always-on Mac is powerful enough to share (e.g. an M-series Mac with 64 GB+ RAM), you can give
+each teammate their own Unix account and named dev hostname — so everyone's dev servers run on the same
+standard ports (`:3000`, `:8080`) without stepping on each other.
+
+### How it works
+
+macOS treats the entire `127.x.x.x` range as loopback. Each user gets their own loopback IP
+(`127.0.0.<index>`) and a named hostname (`<username>.studio`) wired into `/etc/hosts` on the remote:
+
+```
+127.0.0.1  alice.studio    ← index 1 (already exists; no alias needed)
+127.0.0.2  bob.studio      ← index 2 (loopback alias added by provision script)
+127.0.0.3  carol.studio    ← index 3
+```
+
+Dev servers bind to the user's loopback IP — so `alice.studio:3000` and `bob.studio:3000` are fully
+independent even though they share a port number. A LaunchDaemon re-adds each alias on reboot.
+
+> **Why `.studio`?** It's a real TLD but `/etc/hosts` takes priority over DNS for local resolution, so
+> there's no practical conflict. It's also zero-config to type. If you prefer a reserved pseudo-TLD,
+> `.internal` and `.test` (IANA-reserved, never real domains) work identically.
+
+### Adding a user
+
+```bash
+# With their SSH public key in a file:
+./control/bin/provision-user.sh <username> <index> [pubkey-file]
+
+# Or paste the key interactively (omit the file arg):
+./control/bin/provision-user.sh alice 1
+./control/bin/provision-user.sh bob   2 ~/keys/bob.pub
+./control/bin/provision-user.sh carol 3 ~/keys/carol.pub
+```
+
+The script (which runs from your control machine over SSH):
+
+1. Adds a loopback alias `127.0.0.<index>` via `ifconfig` and installs a LaunchDaemon so it
+   survives reboots (skipped for index 1, which already exists)
+2. Adds `127.0.0.<index>  <username>.studio` to `/etc/hosts` on the remote
+3. Creates the macOS user account (`dscl` + `createhomedir`), picking the next free UID
+4. Installs their SSH public key into the new account's `~/.ssh/authorized_keys`
+5. Writes a `.zshrc` with `DEV_HOST` / `DEV_HOSTNAME` pre-set
+6. Writes `~/.env.local.template` (copy into any project worktree as `.env.local`)
+7. Records the assignment in `docs/host-registry.md` locally so indices don't collide
+
+The script prints the final SSH and URL summary when done:
+
+```
+✅  bob is ready.
+
+    SSH:          ssh bob@<host>
+    Web:          http://bob.studio:3000
+    API:          http://bob.studio:8080
+
+    To reach the dev server from your laptop, forward the loopback IP:
+    ssh -L 3000:127.0.0.2:3000 -L 8080:127.0.0.2:8080 <host>
+    Then add '127.0.0.2  bob.studio' to your laptop's /etc/hosts too.
+```
+
+### Laptop-side access (viewing a teammate's dev server)
+
+`FORWARD_PORTS` in `config.env` does `-L port:localhost:port` — it can't forward named loopback IPs
+out of the box. To reach a specific user's dev server in your local browser:
+
+```bash
+# Forward their loopback IP to your laptop (one-off):
+ssh -L 3000:127.0.0.2:3000 -L 8080:127.0.0.2:8080 <host>
+
+# Add to your laptop's /etc/hosts (once per teammate):
+127.0.0.2  bob.studio
+```
+
+After that, `http://bob.studio:3000` works in your local browser exactly like the remote sees it.
+
+### Port registry
+
+Assigned indices are tracked in `docs/host-registry.md` (created automatically on first run).
+Check it before provisioning a new user to avoid collisions:
+
+```
+| User  | Index | Loopback IP | Hostname     |
+|-------|-------|-------------|--------------|
+| alice | 1     | 127.0.0.1   | alice.studio |
+| bob   | 2     | 127.0.0.2   | bob.studio   |
+```
+
+Index 1 (`127.0.0.1`) is reserved for the admin/owner account — that IP always exists and needs no
+alias or LaunchDaemon.
+
+---
+
 ## Troubleshooting
 
 | Symptom | Cause / fix |
