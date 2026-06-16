@@ -32,7 +32,6 @@ OUT="$OUT_DIR/${USERNAME}-setup.sh"
 
 mkdir -p "$OUT_DIR"
 
-# ── write the self-contained onboarding script ────────────────────────────────
 cat > "$OUT" <<SCRIPT
 #!/bin/bash
 # Team Mac onboarding for ${USERNAME}
@@ -44,7 +43,7 @@ REMOTE_USER="${USERNAME}"
 REMOTE_HOST="${REMOTE_HOST}"
 LOOPBACK_IP="${LOOPBACK_IP}"
 STUDIO_HOST="${STUDIO_HOST}"
-SSH_ALIAS="${ALIAS_NAME:-box}"
+SSH_ALIAS="studio"
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 _bold=\$(tput bold 2>/dev/null || true)
@@ -63,12 +62,42 @@ hr
 echo "\${_bold}  Welcome, ${USERNAME}! Let's get you set up on the team Mac.\${_reset}"
 hr
 echo ""
-echo "  This takes about 2 minutes. Just follow the prompts."
+echo "  This takes about 5 minutes. Just follow the prompts."
 echo ""
 read -r -p "  Press Enter to begin… "
 
-# ── step 1: SSH key ───────────────────────────────────────────────────────────
-banner "Step 1 of 3 — Create your access key"
+# ── step 1: Tailscale ─────────────────────────────────────────────────────────
+banner "Step 1 of 4 — Join the team network (Tailscale)"
+
+echo "  Tailscale is how you reach the team Mac securely from anywhere."
+echo ""
+echo "  \${_bold}1.\${_reset} Open the App Store on your Mac"
+echo "  \${_bold}2.\${_reset} Search for \${_bold}Tailscale\${_reset} and install it"
+echo "  \${_bold}3.\${_reset} Open Tailscale from your menu bar (top-right of screen)"
+echo "  \${_bold}4.\${_reset} Sign in — use the same email your admin invited you with"
+echo "  \${_bold}5.\${_reset} You should see \${_bold}${REMOTE_HOST}\${_reset} appear in the Tailscale device list"
+echo ""
+echo "  (If you haven't received a Tailscale invite yet, ask your admin to send one.)"
+echo ""
+read -r -p "  Press Enter once Tailscale is connected and you can see ${REMOTE_HOST}… "
+
+note "Checking Tailscale connection…"
+if ping -c 1 -W 3 "\$REMOTE_HOST" &>/dev/null; then
+  ok "Tailscale is working — \$REMOTE_HOST is reachable."
+else
+  echo ""
+  echo "  ⚠️  Can't reach \$REMOTE_HOST. A few things to check:"
+  echo ""
+  echo "     • Is Tailscale running? Look for it in your menu bar."
+  echo "     • Did you sign in with the right email (the one your admin invited)?"
+  echo "     • Try toggling Tailscale off and on in the menu bar."
+  echo ""
+  echo "  Once Tailscale is connected, run this script again."
+  exit 1
+fi
+
+# ── step 2: SSH key ───────────────────────────────────────────────────────────
+banner "Step 2 of 4 — Create your access key"
 
 KEY_FILE=""
 if [[ -f "\$HOME/.ssh/id_ed25519.pub" ]]; then
@@ -95,13 +124,13 @@ echo ""
 echo "\${_cyan}\${PUBKEY}\${_reset}"
 hr
 echo ""
-echo "  \${_bold}Send this to your admin\${_reset} — paste it in Slack or however you message them."
-echo "  It's safe to share. Wait for them to say you're all set."
+echo "  \${_bold}Send this to your admin\${_reset} — paste it in Slack."
+echo "  It's safe to share. Wait for them to confirm you're provisioned."
 echo ""
-read -r -p "  Press Enter once your admin confirms you're ready… "
+read -r -p "  Press Enter once your admin says you're ready… "
 
-# ── step 2: test the connection ───────────────────────────────────────────────
-banner "Step 2 of 3 — Verify connection"
+# ── step 3: verify SSH connection ─────────────────────────────────────────────
+banner "Step 3 of 4 — Verify SSH connection"
 
 note "Testing your connection…"
 if ! ssh -o BatchMode=yes -o ConnectTimeout=10 \
@@ -111,23 +140,23 @@ if ! ssh -o BatchMode=yes -o ConnectTimeout=10 \
   echo ""
   echo "  ⚠️  Couldn't connect. Things to check:"
   echo ""
+  echo "     • Is Tailscale still running? (check menu bar)"
   echo "     • Did your admin confirm they've added you?"
-  echo "     • Are you on the same VPN or network as the team Mac?"
   echo "     • Make sure you sent the full key line shown above."
   echo ""
-  echo "  Ask your admin to double-check, then run this again."
+  echo "  Ask your admin to double-check, then run this script again."
   exit 1
 fi
-ok "Connection works!"
+ok "SSH connection works!"
 
-# ── step 3: configure your machine ───────────────────────────────────────────
-banner "Step 3 of 3 — Configure your Mac"
+# ── step 4: configure your Mac ────────────────────────────────────────────────
+banner "Step 4 of 4 — Configure your Mac"
 
 SSH_CONFIG="\$HOME/.ssh/config"
 touch "\$SSH_CONFIG" && chmod 600 "\$SSH_CONFIG"
 
 if grep -q "Host \${SSH_ALIAS}\$" "\$SSH_CONFIG" 2>/dev/null; then
-  ok "SSH shortcut already set up."
+  ok "SSH shortcut '\${SSH_ALIAS}' already set up."
 else
   cat >> "\$SSH_CONFIG" <<SSH_ENTRY
 
@@ -136,9 +165,11 @@ Host \${SSH_ALIAS}
     HostName \${REMOTE_HOST}
     User \${REMOTE_USER}
     IdentityFile \${KEY_FILE}
+    IdentitiesOnly yes
     ServerAliveInterval 60
+    ServerAliveCountMax 10
 SSH_ENTRY
-  ok "SSH shortcut '\${SSH_ALIAS}' added."
+  ok "SSH shortcut added — you can now connect with: ssh \${SSH_ALIAS}"
 fi
 
 if grep -qF "\${STUDIO_HOST}" /etc/hosts 2>/dev/null; then
@@ -155,13 +186,14 @@ hr
 echo "\${_bold}\${_green}  You're all set!\${_reset}"
 hr
 echo ""
-echo "  \${_bold}Connect to the team Mac:\${_reset}         ssh \${SSH_ALIAS}"
+echo "  \${_bold}Connect to the team Mac:\${_reset}"
 echo ""
-echo "  \${_bold}Your dev server (once running):\${_reset}  http://\${STUDIO_HOST}:3000"
-echo "                                    http://\${STUDIO_HOST}:8080"
+echo "      ssh \${SSH_ALIAS}"
 echo ""
-echo "  To view dev servers in your local browser while connected:"
-echo "    ssh -L 3000:\${LOOPBACK_IP}:3000 -L 8080:\${LOOPBACK_IP}:8080 \${SSH_ALIAS}"
+echo "  \${_bold}Your dev URLs (once your server is running):\${_reset}"
+echo ""
+echo "      http://\${STUDIO_HOST}:3000   ← web"
+echo "      http://\${STUDIO_HOST}:8080   ← API"
 echo ""
 hr
 echo ""
@@ -169,7 +201,7 @@ SCRIPT
 
 chmod +x "$OUT"
 
-# ── upload to a private Gist → one curl command for the new user ─────────────
+# ── upload to a Gist → one curl command for the new user ─────────────────────
 CURL_CMD=""
 if command -v gh &>/dev/null && gh auth status &>/dev/null 2>&1; then
   GIST_FILENAME="${USERNAME}-setup.sh"
@@ -178,7 +210,6 @@ if command -v gh &>/dev/null && gh auth status &>/dev/null 2>&1; then
     --desc "Team Mac onboarding for ${USERNAME}" \
     "$OUT" 2>/dev/null || true)
   if [[ -n "$GIST_URL" ]]; then
-    # https://gist.github.com/USER/ID → https://gist.githubusercontent.com/USER/ID/raw/FILENAME
     RAW_URL="${GIST_URL/gist.github.com/gist.githubusercontent.com}/raw/${GIST_FILENAME}"
     CURL_CMD="curl -fsSL ${RAW_URL} | bash"
   fi
@@ -190,7 +221,7 @@ if [[ -n "$CURL_CMD" ]]; then
   echo ""
   echo "    ${CURL_CMD}"
   echo ""
-  echo "   They run it → get their SSH key → send it to you."
+  echo "   They run it → join Tailscale → generate SSH key → send it to you."
   echo "   Then: ./users provision ${USERNAME}"
 else
   echo "✅  Invite script: onboard/${USERNAME}-setup.sh"

@@ -257,7 +257,18 @@ If the always-on Mac is powerful enough to share (e.g. an M-series Mac with 64 G
 each teammate their own Unix account and named dev hostname — so everyone's dev servers run on the same
 standard ports (`:3000`, `:8080`) without stepping on each other.
 
-### How it works
+### Prerequisites
+
+- **Tailscale** on the always-on Mac. Users reach it by hostname (`<mac-name>`) rather than IP —
+  works from anywhere, no VPN config. Each user needs a Tailscale account on the same tailnet.
+- **MagicDNS** enabled in your Tailscale admin console (on by default). This is what turns
+  `<mac-name>` into a routable hostname for everyone on the tailnet.
+- `config.env` should use the Tailscale MagicDNS hostname, not an IP:
+  ```
+  REMOTE_HOST="<mac-name>"   # e.g. ramins-mac-studio
+  ```
+
+### How per-user isolation works
 
 macOS treats the entire `127.x.x.x` range as loopback. Each user gets their own loopback IP
 (`127.0.0.<index>`) and a named hostname (`<username>.studio`) wired into `/etc/hosts` on the remote:
@@ -271,77 +282,84 @@ macOS treats the entire `127.x.x.x` range as loopback. Each user gets their own 
 Dev servers bind to the user's loopback IP — so `alice.studio:3000` and `bob.studio:3000` are fully
 independent even though they share a port number. A LaunchDaemon re-adds each alias on reboot.
 
-> **Why `.studio`?** It's a real TLD but `/etc/hosts` takes priority over DNS for local resolution, so
-> there's no practical conflict. It's also zero-config to type. If you prefer a reserved pseudo-TLD,
-> `.internal` and `.test` (IANA-reserved, never real domains) work identically.
+> **Why `.studio`?** `/etc/hosts` takes priority over DNS, so there's no conflict with the real TLD.
+> If you prefer a reserved pseudo-TLD, `.internal` and `.test` (IANA-reserved) work identically.
 
-### Adding a user — two steps
+### Adding a user
 
-**Step 1 (admin): generate a personalized setup script for the new user.**
+**Admin: run this once.**
 
 ```bash
-./control/bin/generate-invite.sh bob 2
-# → creates onboard/bob-setup.sh
+./users add <name>
 ```
 
-Send `onboard/bob-setup.sh` to the new user (Slack, AirDrop, email). Tell them:
+This handles everything interactively:
+- Picks the next free slot
+- Generates a personalized setup script for the user
+- Uploads it to a private GitHub Gist and prints a single curl command to send them
+- After you have their SSH key, provisions their account on the Mac
 
-> "Run this in your terminal: `bash ~/Downloads/bob-setup.sh`"
+**User: run the curl command from Slack in their Terminal.**
 
-Their script will generate an SSH key, display it, copy it to their clipboard, and pause
-while they share it with you.
+The script walks them through 4 steps:
 
-**Step 2 (admin): provision them once you have their public key.**
+1. **Tailscale** — install from App Store, sign in with the invite email, verify they can reach the Mac
+2. **SSH key** — generates one if needed, copies it to clipboard, tells them to send it to you
+3. **Connection test** — verifies SSH works once you've provisioned them
+4. **Mac config** — adds SSH shortcut to `~/.ssh/config` and their `.studio` hostname to `/etc/hosts`
+
+**Admin: invite them to Tailscale** (do this in parallel while they install).
+
+Go to [tailscale.com/admin](https://tailscale.com/admin) → Users → Invite. Use their email. They
+accept the invite in the Tailscale app and the Mac becomes visible to them immediately.
+
+**Admin: provision them** once they send you their SSH key.
 
 ```bash
-./control/bin/provision-user.sh bob 2
-# (paste their public key when prompted — or pass a .pub file as a third arg)
+./users provision <name>
+# paste their public key when prompted
 ```
 
-This runs on the remote Mac over SSH and:
+Tell them to press Enter in the setup script. Done.
 
-1. Adds a loopback alias `127.0.0.<index>` via `ifconfig` + a LaunchDaemon for reboot persistence
-   (skipped for index 1 which already exists)
-2. Adds `127.0.0.<index>  bob.studio` to `/etc/hosts`
-3. Creates the macOS user account (`dscl` + `createhomedir`), picking the next free UID
-4. Installs their SSH public key
-5. Writes a `.zshrc` with `DEV_HOST`/`DEV_HOSTNAME` pre-set
-6. Writes `~/.env.local.template` to copy into any project worktree
-7. Records the assignment in `docs/host-registry.md`
+### Pro users (skip the wizard)
 
-**Tell them to press Enter** in the setup script. It tests the connection, adds an SSH
-config entry on their machine, adds their `.studio` hostname to their `/etc/hosts`, and
-prints connection instructions. Done.
+Technical users can skip the onboarding script entirely:
 
-### Laptop-side access (viewing a teammate's dev server)
+1. Install Tailscale, join the tailnet
+2. Send you their SSH public key
+3. You run `./users provision <name>`
+4. They add to `~/.ssh/config`:
+   ```
+   Host studio
+       HostName <mac-name>
+       User <their-username>
+       IdentityFile ~/.ssh/id_ed25519
+       IdentitiesOnly yes
+       ServerAliveInterval 60
+   ```
+5. `ssh studio` — they're in
 
-`FORWARD_PORTS` in `config.env` does `-L port:localhost:port` — it can't forward named loopback IPs
-out of the box. To reach a specific user's dev server in your local browser:
+### Laptop-side dev server access
+
+To view a teammate's dev server in your local browser, forward their loopback IP over SSH:
 
 ```bash
-# Forward their loopback IP to your laptop (one-off):
-ssh -L 3000:127.0.0.2:3000 -L 8080:127.0.0.2:8080 <host>
+ssh -L 3000:127.0.0.2:3000 -L 8080:127.0.0.2:8080 studio
+```
 
-# Add to your laptop's /etc/hosts (once per teammate):
+And add to your laptop's `/etc/hosts`:
+```
 127.0.0.2  bob.studio
 ```
 
-After that, `http://bob.studio:3000` works in your local browser exactly like the remote sees it.
+After that, `http://bob.studio:3000` works in your browser exactly as it does on the remote.
 
-### Port registry
+### Host registry
 
-Assigned indices are tracked in `docs/host-registry.md` (created automatically on first run).
-Check it before provisioning a new user to avoid collisions:
-
-```
-| User  | Index | Loopback IP | Hostname     |
-|-------|-------|-------------|--------------|
-| alice | 1     | 127.0.0.1   | alice.studio |
-| bob   | 2     | 127.0.0.2   | bob.studio   |
-```
-
-Index 1 (`127.0.0.1`) is reserved for the admin/owner account — that IP always exists and needs no
-alias or LaunchDaemon.
+Assigned slots are tracked in `docs/host-registry.md` (created automatically). Check it before
+adding a new user. Index 1 (`127.0.0.1`) is reserved for the admin — it always exists and needs
+no alias or LaunchDaemon.
 
 ---
 
