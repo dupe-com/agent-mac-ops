@@ -199,10 +199,14 @@ echo "    Web:  http://$STUDIO_HOST:3000"
 echo "    API:  http://$STUDIO_HOST:8080"
 SCRIPT
 
-# Ship and run with a real TTY so sudo can prompt interactively
-RTMP="/tmp/.amops-provision-$$.sh"
-scp -q "$REMOTE_SCRIPT" "${REMOTE_HOST}:${RTMP}"
-ssh -t -o ConnectTimeout=10 "$REMOTE_HOST" "bash '$RTMP'; rm -f '$RTMP'"
+# Run locally if already on the remote host, otherwise scp + ssh -t
+if [[ "$(hostname -s)" == "$REMOTE_HOSTNAME" ]]; then
+  bash "$REMOTE_SCRIPT"
+else
+  RTMP="/tmp/.amops-provision-$$.sh"
+  scp -q "$REMOTE_SCRIPT" "${REMOTE_HOST}:${RTMP}"
+  ssh -t -o ConnectTimeout=10 "$REMOTE_HOST" "bash '$RTMP'; rm -f '$RTMP'"
+fi
 
 # ── update local host registry ────────────────────────────────────────────────
 mkdir -p "$ROOT/docs"
