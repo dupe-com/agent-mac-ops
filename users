@@ -64,7 +64,7 @@ next_index() {
       [[ "$idx" =~ ^[0-9]+$ ]] && taken+=("$idx")
     done < "$REGISTRY"
   fi
-  for i in $(seq 1 9); do
+  for i in $(seq 2 9); do
     local used=0
     for t in "${taken[@]:-}"; do [[ "$t" == "$i" ]] && used=1 && break; done
     [[ $used -eq 0 ]] && echo "$i" && return

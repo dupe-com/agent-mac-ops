@@ -173,7 +173,7 @@ chmod +x "$OUT"
 CURL_CMD=""
 if command -v gh &>/dev/null && gh auth status &>/dev/null 2>&1; then
   GIST_FILENAME="${USERNAME}-setup.sh"
-  GIST_URL=$(gh gist create --private \
+  GIST_URL=$(gh gist create \
     --filename "$GIST_FILENAME" \
     --desc "Team Mac onboarding for ${USERNAME}" \
     "$OUT" 2>/dev/null || true)

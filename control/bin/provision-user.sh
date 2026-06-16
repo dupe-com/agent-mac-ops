@@ -65,15 +65,19 @@ if [[ -f "$REGISTRY" ]] && grep -q "| $INDEX |" "$REGISTRY" 2>/dev/null; then
   [[ "$confirm" =~ ^[Yy]$ ]] || exit 1
 fi
 
-# ── ship the remote payload ───────────────────────────────────────────────────
+# ── build remote script locally, ship via scp, run with ssh -t ───────────────
+# We use scp + ssh -t instead of "bash -s <<HEREDOC" so that sudo can prompt
+# for a password interactively (requires a real TTY).
 echo "→ provisioning '$USERNAME' on $REMOTE_HOST ($STUDIO_HOST → $LOOPBACK_IP) …"
 echo ""
 
-# NOTE: outer heredoc (<<REMOTE) is unquoted so local vars expand.
-# Remote vars / content meant for files use \$ to survive to the remote.
-# Inner heredocs that should not expand on the remote use <<'EOF' (quoted delimiters).
+REMOTE_SCRIPT=$(mktemp /tmp/amops-provision-XXXXXX.sh)
+trap "rm -f '$REMOTE_SCRIPT'" EXIT
 
-ssh -o BatchMode=yes -o ConnectTimeout=10 -t "$REMOTE_HOST" "bash -s" <<REMOTE
+# Write the script with local variables pre-expanded.
+# SSH public keys contain no special shell characters, so embedding directly is safe.
+cat > "$REMOTE_SCRIPT" <<SCRIPT
+#!/bin/bash
 set -euo pipefail
 
 USERNAME="$USERNAME"
@@ -83,7 +87,6 @@ INDEX="$INDEX"
 PUBKEY="$PUBKEY"
 
 # ── 1. loopback alias ─────────────────────────────────────────────────────────
-# 127.0.0.1 already exists; only higher indices need an alias + LaunchDaemon.
 if [ "\$INDEX" -eq 1 ]; then
   echo "  loopback: 127.0.0.1 already exists — skipping alias"
 else
@@ -94,7 +97,6 @@ else
     echo "✓ loopback alias \$LOOPBACK_IP added (active now)"
   fi
 
-  # LaunchDaemon so the alias survives reboots
   PLIST="/Library/LaunchDaemons/com.agent-mac-ops.loopback.\${USERNAME}.plist"
   if [[ ! -f "\$PLIST" ]]; then
     sudo tee "\$PLIST" > /dev/null <<PLIST_EOF
@@ -124,7 +126,7 @@ PLIST_EOF
   fi
 fi
 
-# ── 2. /etc/hosts entry ───────────────────────────────────────────────────────
+# ── 2. /etc/hosts ─────────────────────────────────────────────────────────────
 if grep -qF "\$STUDIO_HOST" /etc/hosts; then
   echo "  /etc/hosts: \$STUDIO_HOST already present"
 else
@@ -165,35 +167,25 @@ sudo chown -R "\$USERNAME":staff "\$SSH_DIR"
 # ── 5. .zshrc ─────────────────────────────────────────────────────────────────
 ZSHRC="/Users/\$USERNAME/.zshrc"
 if [[ -f "\$ZSHRC" ]]; then
-  echo "  .zshrc already exists — skipping (add DEV_HOST/DEV_HOSTNAME manually if missing)"
+  echo "  .zshrc already exists — skipping"
 else
   sudo -u "\$USERNAME" tee "\$ZSHRC" > /dev/null <<'ZSHRC_EOF'
-# Homebrew (Apple Silicon)
-[ -f /opt/homebrew/bin/brew ] && eval "$(/opt/homebrew/bin/brew shellenv)"
-
-# Bun
-export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
-
-# nvm (lazy-loaded)
-export NVM_DIR="$HOME/.nvm"
+[ -f /opt/homebrew/bin/brew ] && eval "\$(/opt/homebrew/bin/brew shellenv)"
+export BUN_INSTALL="\$HOME/.bun"
+export PATH="\$BUN_INSTALL/bin:\$PATH"
+export NVM_DIR="\$HOME/.nvm"
 [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && source "/opt/homebrew/opt/nvm/nvm.sh" --no-use
-
 alias ll='ls -lah'
 alias gs='git status'
 ZSHRC_EOF
-
-  # Append the user-specific vars (these need local expansion, so outside the quoted heredoc)
-  printf '\n# Dev identity — set at provisioning time\nexport DEV_HOST="%s"\nexport DEV_HOSTNAME="%s"\n' \
+  printf '\nexport DEV_HOST="%s"\nexport DEV_HOSTNAME="%s"\n' \
     "$LOOPBACK_IP" "$STUDIO_HOST" | sudo tee -a "\$ZSHRC" > /dev/null
   echo "✓ .zshrc written"
 fi
 
 # ── 6. .env.local template ────────────────────────────────────────────────────
-ENV_TMPL="/Users/\$USERNAME/.env.local.template"
-sudo -u "\$USERNAME" tee "\$ENV_TMPL" > /dev/null <<ENVEOF
-# Copy into your dupe-com worktree's .env.local
-# Your named host: $STUDIO_HOST
+sudo -u "\$USERNAME" tee "/Users/\$USERNAME/.env.local.template" > /dev/null <<ENVEOF
+# Copy into your project worktree as .env.local
 HOSTNAME=$LOOPBACK_IP
 PORT=3000
 API_PORT=8080
@@ -202,15 +194,15 @@ echo "✓ ~/.env.local.template written"
 
 echo ""
 echo "✅  \$USERNAME is ready."
-echo ""
-echo "    SSH:          ssh \$USERNAME@$REMOTE_HOST"
-echo "    Web:          http://$STUDIO_HOST:3000"
-echo "    API:          http://$STUDIO_HOST:8080"
-echo ""
-echo "    To reach the dev server from your laptop, forward the loopback IP:"
-echo "    ssh -L 3000:$LOOPBACK_IP:3000 -L 8080:$LOOPBACK_IP:8080 $REMOTE_HOST"
-echo "    Then add '$LOOPBACK_IP  $STUDIO_HOST' to your laptop's /etc/hosts too."
-REMOTE
+echo "    SSH:  ssh \$USERNAME@$REMOTE_HOST"
+echo "    Web:  http://$STUDIO_HOST:3000"
+echo "    API:  http://$STUDIO_HOST:8080"
+SCRIPT
+
+# Ship and run with a real TTY so sudo can prompt interactively
+RTMP="/tmp/.amops-provision-$$.sh"
+scp -q "$REMOTE_SCRIPT" "${REMOTE_HOST}:${RTMP}"
+ssh -t -o ConnectTimeout=10 "$REMOTE_HOST" "bash '$RTMP'; rm -f '$RTMP'"
 
 # ── update local host registry ────────────────────────────────────────────────
 mkdir -p "$ROOT/docs"
