@@ -48,26 +48,25 @@ the human's interactive `-CC` window. Use it instead of sending `q` to the pane.
 
 ## User provisioning
 
-To add a new developer account on the remote Mac:
+Two-step flow — generate the invite first, provision after you have their key:
 
 ```bash
-# Provision with key from file (index 2 → 127.0.0.2, mariano.studio):
-./control/bin/provision-user.sh mariano 2 ~/keys/mariano.pub
+# Step 1: generate a personalized setup script for the new user
+./control/bin/generate-invite.sh <username> <index>
+# → creates onboard/<username>-setup.sh — send this file to them
 
-# Or paste the pubkey interactively:
-./control/bin/provision-user.sh lisa 3
+# They run it on their laptop: it generates their SSH key and shows it to them.
+# They paste their public key to you (via Slack etc.).
+
+# Step 2: provision them on the remote Mac (paste their key when prompted)
+./control/bin/provision-user.sh <username> <index>
+
+# Tell them to press Enter in their setup script — it connects and configures their Mac.
 ```
 
 Each user gets their own Unix account, loopback IP (`127.0.0.<index>`), and named
-host (`<username>.studio`) wired into `/etc/hosts`. A LaunchDaemon keeps the loopback
-alias alive across reboots. Everyone's dev servers run on the same standard ports
-(web :3000, api :8080) — no port offsets needed.
-
-To reach a user's dev server from a laptop, forward their loopback IP:
-```bash
-ssh -L 3000:127.0.0.2:3000 -L 8080:127.0.0.2:8080 REMOTE_HOST
-# and add to laptop's /etc/hosts: 127.0.0.2  mariano.studio
-```
+host (`<username>.studio`). A LaunchDaemon keeps the loopback alias alive across reboots.
+Everyone's dev servers run on standard ports (web :3000, api :8080) — no port offsets.
 
 Taken indices are recorded in `docs/host-registry.md`. Index 1 is reserved for the
 admin user (127.0.0.1 already exists; no alias or LaunchDaemon needed).

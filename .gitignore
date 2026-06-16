@@ -6,6 +6,9 @@ remote/dev-session.sh
 remote/open-handoff.sh
 remote/code-handoff.sh
 
+# Personalized invite scripts (contain remote host address — don't commit)
+onboard/*-setup.sh
+
 # python bytecode
 __pycache__/
 *.pyc

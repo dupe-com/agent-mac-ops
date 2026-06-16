@@ -29,6 +29,9 @@ PUBKEY_FILE="${3:-}"
 if [[ -z "$USERNAME" || -z "$INDEX" ]]; then
   echo "usage: $(basename "$0") <username> <index> [pubkey-file]" >&2
   echo "       index 1-9 → loopback IP 127.0.0.<index> + hostname <username>.studio" >&2
+  echo "" >&2
+  echo "tip:   run generate-invite.sh first to send the user a setup script" >&2
+  echo "       that walks them through generating their SSH key." >&2
   exit 1
 fi
 

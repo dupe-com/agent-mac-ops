@@ -275,42 +275,43 @@ independent even though they share a port number. A LaunchDaemon re-adds each al
 > there's no practical conflict. It's also zero-config to type. If you prefer a reserved pseudo-TLD,
 > `.internal` and `.test` (IANA-reserved, never real domains) work identically.
 
-### Adding a user
+### Adding a user — two steps
+
+**Step 1 (admin): generate a personalized setup script for the new user.**
 
 ```bash
-# With their SSH public key in a file:
-./control/bin/provision-user.sh <username> <index> [pubkey-file]
-
-# Or paste the key interactively (omit the file arg):
-./control/bin/provision-user.sh alice 1
-./control/bin/provision-user.sh bob   2 ~/keys/bob.pub
-./control/bin/provision-user.sh carol 3 ~/keys/carol.pub
+./control/bin/generate-invite.sh bob 2
+# → creates onboard/bob-setup.sh
 ```
 
-The script (which runs from your control machine over SSH):
+Send `onboard/bob-setup.sh` to the new user (Slack, AirDrop, email). Tell them:
 
-1. Adds a loopback alias `127.0.0.<index>` via `ifconfig` and installs a LaunchDaemon so it
-   survives reboots (skipped for index 1, which already exists)
-2. Adds `127.0.0.<index>  <username>.studio` to `/etc/hosts` on the remote
+> "Run this in your terminal: `bash ~/Downloads/bob-setup.sh`"
+
+Their script will generate an SSH key, display it, copy it to their clipboard, and pause
+while they share it with you.
+
+**Step 2 (admin): provision them once you have their public key.**
+
+```bash
+./control/bin/provision-user.sh bob 2
+# (paste their public key when prompted — or pass a .pub file as a third arg)
+```
+
+This runs on the remote Mac over SSH and:
+
+1. Adds a loopback alias `127.0.0.<index>` via `ifconfig` + a LaunchDaemon for reboot persistence
+   (skipped for index 1 which already exists)
+2. Adds `127.0.0.<index>  bob.studio` to `/etc/hosts`
 3. Creates the macOS user account (`dscl` + `createhomedir`), picking the next free UID
-4. Installs their SSH public key into the new account's `~/.ssh/authorized_keys`
-5. Writes a `.zshrc` with `DEV_HOST` / `DEV_HOSTNAME` pre-set
-6. Writes `~/.env.local.template` (copy into any project worktree as `.env.local`)
-7. Records the assignment in `docs/host-registry.md` locally so indices don't collide
+4. Installs their SSH public key
+5. Writes a `.zshrc` with `DEV_HOST`/`DEV_HOSTNAME` pre-set
+6. Writes `~/.env.local.template` to copy into any project worktree
+7. Records the assignment in `docs/host-registry.md`
 
-The script prints the final SSH and URL summary when done:
-
-```
-✅  bob is ready.
-
-    SSH:          ssh bob@<host>
-    Web:          http://bob.studio:3000
-    API:          http://bob.studio:8080
-
-    To reach the dev server from your laptop, forward the loopback IP:
-    ssh -L 3000:127.0.0.2:3000 -L 8080:127.0.0.2:8080 <host>
-    Then add '127.0.0.2  bob.studio' to your laptop's /etc/hosts too.
-```
+**Tell them to press Enter** in the setup script. It tests the connection, adds an SSH
+config entry on their machine, adds their `.studio` hostname to their `/etc/hosts`, and
+prints connection instructions. Done.
 
 ### Laptop-side access (viewing a teammate's dev server)
 
