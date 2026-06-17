@@ -164,6 +164,16 @@ fi
 sudo chmod 600 "\$AUTH_KEYS"
 sudo chown -R "\$USERNAME":staff "\$SSH_DIR"
 
+# ── 4b. SSH SACL ──────────────────────────────────────────────────────────────
+# macOS pam_sacl.so blocks SSH for users not in com.apple.access_ssh,
+# even after a valid key is accepted (PK_OK → connection drop).
+if dscl . -read /Groups/com.apple.access_ssh GroupMembership 2>/dev/null | grep -qw "\$USERNAME"; then
+  echo "  SSH SACL: \$USERNAME already present"
+else
+  sudo dseditgroup -o edit -a "\$USERNAME" -t user com.apple.access_ssh
+  echo "✓ SSH SACL: \$USERNAME added to com.apple.access_ssh"
+fi
+
 # ── 5. .zshrc ─────────────────────────────────────────────────────────────────
 ZSHRC="/Users/\$USERNAME/.zshrc"
 if [[ -f "\$ZSHRC" ]]; then
