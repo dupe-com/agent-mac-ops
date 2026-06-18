@@ -171,6 +171,39 @@ entry in your `~/.ssh/config` (it is, if that's how you connect with `<alias>`).
 - The remote shim only forwards a path — it can **only** ever open `ssh-remote+<your
   configured host>`, never an arbitrary destination, and it's token-gated like `open`.
 
+### Make plain `code .` smart (optional)
+
+`code-<alias>` is deliberately a distinct name so it never shadows the remote's own
+`code`/`cursor` CLI. But if your remote is a headless always-on box you almost always
+reach over SSH, you may want muscle-memory `code .` to *just work* — hand off to your
+laptop when you're driving the box remotely, yet still open locally on the rare occasion
+you're sitting at it.
+
+Drop this into the **remote's** interactive shell rc (e.g. `~/.zshrc` on the remote). It
+dispatches on the one signal that actually tracks "am I being driven remotely": whether a
+connected session's reverse handoff tunnel is up. No tunnel → you're local → real editor.
+
+```bash
+# Smart code/cursor: hand off to the laptop when the handoff tunnel is up, else open
+# locally. Guarded on the shim, so it's a no-op anywhere the shim isn't installed
+# (e.g. your laptop — safe to keep in shared/synced dotfiles). Replace <alias>.
+if [ -x "$HOME/bin/code-<alias>" ]; then
+  _amo_handoff_up() { nc -z -w1 127.0.0.1 "${HANDOFF_PORT:-17999}" >/dev/null 2>&1; }
+  _amo_is_wait()    { for _a in "$@"; do [ "$_a" = "-w" ] || [ "$_a" = "--wait" ] && return 0; done; return 1; }
+  _amo_smart_edit() { local real="$1"; shift
+    if ! _amo_is_wait "$@" && _amo_handoff_up; then "$HOME/bin/code-<alias>" "$@"; else command "$real" "$@"; fi; }
+  code()   { _amo_smart_edit code "$@"; }
+  cursor() { _amo_smart_edit cursor "$@"; }
+fi
+```
+
+- **Why a shell function, not a `~/bin/code` wrapper:** functions load in interactive
+  shells only, so non-interactive callers (git's `core.editor`, `EDITOR`, scripts) keep
+  getting the real local binary. The `-w`/`--wait` carveout is a second guard for the same
+  reason — a handoff returns immediately and can't block, so blocking invocations stay local.
+- **Port check** is `${HANDOFF_PORT:-17999}` — set `HANDOFF_PORT` or edit the literal to
+  match your `config.env`.
+
 ## Recipes
 
 **Local dev server on the remote**

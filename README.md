@@ -38,7 +38,10 @@
   Prefer no background watcher? Push on demand with `box-clip`.
 - 🧑‍💻 **`code .` for the remote.** Run `code-box` in the remote session and your laptop's Cursor (or
   VS Code) opens in Remote-SSH mode at that folder — so the editor runs locally, on the remote's files.
-  Or `box-code` from a cold laptop shell, no session needed. Reuses the handoff listener.
+  Or `box-code` from a cold laptop shell, no session needed. Reuses the handoff listener. An optional
+  one-block shell snippet makes literal `code .` *smart* — it hands off to your laptop when you're
+  driving the box over SSH, and opens locally when you're sitting at it.
+  ([details →](docs/REMOTE-AUTH.md#make-plain-code--smart-optional))
 - 📦 **Painless file transfer & forwarding.** `box-push` / `box-pull` move files without typing the host;
   `box-fwd` forwards ad-hoc ports (including random OAuth callbacks).
 - 🔪 **Reclaim a busy port in one keypress.** Port management grew up and moved into its own project:
