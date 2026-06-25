@@ -9,7 +9,7 @@
 >
 > Built so far: README, SETUP.md, docs/REMOTE-AUTH.md, config.env.example, setup.sh (init/remote),
 > control/shell-snippet.sh.tmpl, control/ops/AGENTS.md, control/ops/bin/{remote-run,status,logs,revive,daily-check,install-launchd}.sh,
-> control/bin/{box-fwd.sh,open-listener.py,install-open-listener.sh}, remote/{dev-session,open-handoff}.sh.tmpl, LICENSE (MIT).
+> control/bin/{box-fwd.sh,open-listener.py,install-open-listener.sh,handoff-tunnel.sh,install-handoff-tunnel.sh}, remote/{dev-session,open-handoff,code-handoff}.sh.tmpl, LICENSE (MIT).
 > All scripts syntax-checked; templates render clean; listener token/scheme guards tested (403/400).
 > Not yet done: push to GitHub; real end-to-end test against a live remote + iTerm2 GUI; optional CI/shellcheck.
 

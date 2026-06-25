@@ -17,11 +17,14 @@ export ITERM_ENABLE_SHELL_INTEGRATION_WITH_TMUX=1
 
 # Shared SSH master (same ControlPath as box-fwd). The first connection opens it
 # WITH the forwards below; later Ghostty splits ride it → instant, no re-auth, and
-# only the master holds the forwards so splits never collide on the -R tunnel.
+# only the master holds the forwards so splits never collide on them.
 _amo_cp="$HOME/.ssh/cm-%r@%h:%p"
 
-# @@SSH_FORWARDS@@ = reverse tunnel for browser handoff (-R) + any FORWARD_PORTS
-# (-L), so remote dev servers and OAuth localhost callbacks reach your Mac.
+# @@SSH_FORWARDS@@ = the -L dev-server forwards (FORWARD_PORTS), so remote dev servers
+# and OAuth localhost callbacks reach your Mac. The browser/editor handoff REVERSE
+# tunnel (-R) is NOT here — it's owned by a separate self-healing launchd agent
+# (control/bin/install-handoff-tunnel.sh) that survives drops/sleep on its own, so it
+# never collides with this master on the remote's handoff-port bind.
 #
 # The forwards ride the DETACHED master (_amo_master), never this -CC connection.
 # Why it matters: a -L forward pointed at a dev server you just stopped will spew
@@ -76,7 +79,8 @@ unalias @@ALIAS_NAME@@ @@ALIAS_NAME@@-tmux 2>/dev/null || true
 # appear instantly and reconcile with the server async, the one thing that beats the
 # SSH round-trip floor. It's a single UDP session (no -CC, no native splits) and
 # CAN'T carry forwards, so we still bring up the detached SSH master first (it holds
-# browser handoff + FORWARD_PORTS), and mosh runs `tmux attach` inside dev-session so
+# the FORWARD_PORTS -L forwards; the handoff -R rides its own launchd agent), and mosh
+# runs `tmux attach` inside dev-session so
 # the session survives drops + gives you panes. Works in iTerm and Ghostty alike.
 # Needs mosh on both ends (./setup.sh remote installs it) + UDP 60000-61000 reachable
 # (Tailscale carries it). MOSH_SERVER is the remote mosh-server path baked by setup.sh

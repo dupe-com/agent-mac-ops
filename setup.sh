@@ -33,9 +33,13 @@ render_all() {
 }
 
 build_forwards() {
-  local f=""
-  [ "${HANDOFF_ENABLED:-true}" = "true" ] && f="-R ${HANDOFF_PORT}:localhost:${HANDOFF_PORT}"
-  local p; for p in ${FORWARD_PORTS:-}; do f="$f -L $p:localhost:$p"; done
+  # The handoff reverse tunnel (-R $HANDOFF_PORT) is NOT carried here anymore — it's
+  # owned by the self-healing launchd agent (control/bin/install-handoff-tunnel.sh),
+  # so it survives drops/sleep/reboot independently of any shell session and never
+  # collides with this master on the remote's :$HANDOFF_PORT bind. The session master
+  # carries only the -L dev-server forwards.
+  local f="" p
+  for p in ${FORWARD_PORTS:-}; do f="${f:+$f }-L $p:localhost:$p"; done
   SSH_FORWARDS="$f"
 }
 
@@ -99,8 +103,10 @@ EOF
     echo "  2) push to the remote:                   ./setup.sh remote"
     echo "  3) iTerm2 GUI steps in SETUP.md          (profile + Automatic Profile Switching)"
     echo "     Ghostty users: no GUI steps — '$ALIAS_NAME' just works (see SETUP.md §4b)."
-    [ "${HANDOFF_ENABLED}" = "true" ] && \
-    echo "  4) browser handoff listener:             control/bin/install-open-listener.sh"
+    [ "${HANDOFF_ENABLED}" = "true" ] && {
+    echo "  4) browser/editor handoff listener:      control/bin/install-open-listener.sh"
+    echo "     + self-healing reverse tunnel:        control/bin/install-handoff-tunnel.sh"
+    }
     echo "  5) optional daily digest:                control/ops/bin/install-launchd.sh"
     echo "  6) point your agent at control/ops/ and say:  \"check on $REMOTE_HOST\""
     ;;

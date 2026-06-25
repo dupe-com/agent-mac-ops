@@ -23,7 +23,9 @@ if curl -s --max-time 4 "http://localhost:$PORT/cursor" \
        --data-urlencode "token=$TOKEN" --data-urlencode "path=$abs" >/dev/null 2>&1; then
   echo "opening your Mac's editor → @@REMOTE_HOST@@:$abs"
 else
-  echo "code-@@ALIAS_NAME@@: can't reach your Mac's listener. Connect the session" >&2
-  echo "  (so the reverse tunnel is up) and install it: control/bin/install-open-listener.sh" >&2
+  echo "code-@@ALIAS_NAME@@: can't reach your Mac's listener (handoff tunnel down)." >&2
+  echo "  It normally self-heals. On your Mac, (re)install the always-on tunnel +" >&2
+  echo "  listener:  control/bin/install-handoff-tunnel.sh  and" >&2
+  echo "             control/bin/install-open-listener.sh" >&2
   exit 1
 fi

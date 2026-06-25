@@ -102,14 +102,19 @@ Now:
   panes, or Ghostty native splits — auto-detected). Ghostty adds **`box-tmux`** for a persistent
   session that survives disconnect.
 - **`box-mosh`** (either terminal) → connect over mosh for snappy, predictive typing when the link is
-  laggy. Single session + tmux for persistence; forwards/handoff still ride the SSH master.
+  laggy. Single session + tmux for persistence; the `-L` forwards ride the SSH master, the handoff
+  reverse tunnel rides its own self-healing launchd agent.
 - **Point your agent at `control/ops/`** and say *"check on the box."*
-- **Browser handoff:** `control/bin/install-open-listener.sh` so remote auth pages open on your Mac.
+- **Browser/editor handoff:** `control/bin/install-open-listener.sh` (listener on your Mac) +
+  `control/bin/install-handoff-tunnel.sh` (an always-on, self-healing reverse tunnel) so remote auth
+  pages — and `code-box` — open on your Mac. The tunnel re-dials on its own after network drops and
+  reboots (and within ~a minute of a laptop sleep/wake), with or without a session connected.
 - **Clipboard auto-mirror:** `control/bin/install-clip-watch.sh` so screenshots you copy here land on
   the remote's clipboard automatically — `Ctrl+V` them in a tool on the remote, no command in between.
 - **Open the remote in your local editor:** inside the session, `code-box` (current dir) opens Cursor/
   VS Code on your Mac in Remote-SSH mode; from a local shell, `box-code [path]`. Needs the handoff
-  listener (`install-open-listener.sh`) and the host in your `~/.ssh/config`.
+  listener (`install-open-listener.sh`), the self-healing tunnel (`install-handoff-tunnel.sh`), and
+  the host in your `~/.ssh/config`.
 - **`ports`** → see every local TCP listener and kill the holder in one keypress. Install
   [ports-cli](https://github.com/dupe-com/ports-cli) (`brew install dupe-com/tap/ports-cli`) for the
   full TUI — it classifies the ssh forwards this repo creates as `DEV (SSH)` instead of system noise.

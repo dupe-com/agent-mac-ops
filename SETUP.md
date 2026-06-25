@@ -242,7 +242,10 @@ If you ever log into a CLI/tool on the remote or run a dev server, set this up â
 between Screen Sharing and "it just works":
 
 ```bash
-control/bin/install-open-listener.sh   # browser handoff: remote auth pages open on YOUR Mac
+control/bin/install-open-listener.sh   # browser/editor handoff: remote auth pages open on YOUR Mac
+control/bin/install-handoff-tunnel.sh  # always-on, self-healing reverse tunnel that carries the
+                                       # handoff back to your Mac â€” re-dials after drops/reboots
+                                       # (and ~a minute after a laptop sleep/wake)
 ```
 
 `FORWARD_PORTS` in `config.env` are forwarded automatically on connect; use `box-fwd` for ad-hoc
