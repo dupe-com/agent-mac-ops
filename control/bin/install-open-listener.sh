@@ -38,6 +38,19 @@ cat > "$PLIST" <<PEOF
 </plist>
 PEOF
 
-launchctl unload "$PLIST" 2>/dev/null || true
-launchctl load "$PLIST"
-echo "installed $LABEL — listening on 127.0.0.1:$PORT; log: ~/Library/Logs/agent-mac-ops-open-listener.log"
+# Modern bootstrap instead of legacy load/unload: bootout clears any stale
+# registration, enable clears a disabled override, bootstrap loads + RunAtLoad starts
+# it, kickstart is belt-and-suspenders. Legacy `launchctl load` could leave the job
+# loaded-but-never-started (runs=0) after repeated load/unload churn.
+DOMAIN="gui/$(id -u)"
+launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
+launchctl enable "$DOMAIN/$LABEL" 2>/dev/null || true
+launchctl bootstrap "$DOMAIN" "$PLIST"
+launchctl kickstart -k "$DOMAIN/$LABEL" 2>/dev/null || true
+
+sleep 0.3
+if launchctl print "$DOMAIN/$LABEL" 2>/dev/null | grep -q 'state = running'; then
+  echo "installed $LABEL — running on 127.0.0.1:$PORT; log: ~/Library/Logs/agent-mac-ops-open-listener.log"
+else
+  echo "installed $LABEL but it is NOT running — check ~/Library/Logs/agent-mac-ops-open-listener.log" >&2
+fi
