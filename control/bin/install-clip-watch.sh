@@ -34,7 +34,19 @@ cat > "$PLIST" <<PEOF
 </plist>
 PEOF
 
-launchctl unload "$PLIST" 2>/dev/null || true
-launchctl load "$PLIST"
-echo "installed $LABEL — clipboard images auto-mirror to $REMOTE_HOST; log: $LOG"
-echo "stop with:  launchctl unload \"$PLIST\""
+# Modern launchctl (bootout/enable/bootstrap/kickstart) instead of legacy load/unload,
+# which can leave a job loaded-but-never-started after repeated reloads (runs=0). Then
+# verify it's actually running rather than blindly reporting success.
+DOMAIN="gui/$(id -u)"
+launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
+launchctl enable "$DOMAIN/$LABEL" 2>/dev/null || true
+launchctl bootstrap "$DOMAIN" "$PLIST"
+launchctl kickstart -k "$DOMAIN/$LABEL" 2>/dev/null || true
+
+sleep 0.3
+if launchctl print "$DOMAIN/$LABEL" 2>/dev/null | grep -q 'state = running'; then
+  echo "installed $LABEL — clipboard images auto-mirror to $REMOTE_HOST; log: $LOG"
+else
+  echo "installed $LABEL but it is NOT running — check $LOG" >&2
+fi
+echo "  stop/disable: launchctl bootout $DOMAIN/$LABEL"
