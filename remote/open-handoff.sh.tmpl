@@ -1,9 +1,12 @@
 #!/bin/zsh
 # agent-mac-ops `open` shim (lives at ~/bin/open ON THE REMOTE; rendered+pushed by
-# setup.sh). Shadows /usr/bin/open in the dev session: http(s) URLs are sent back
-# to the control Mac over the reverse tunnel so the page opens on YOUR machine.
-# Anything else (files, apps) falls through to the real /usr/bin/open. If the tunnel
-# is down, falls back to opening the URL locally so nothing silently breaks.
+# setup.sh). Shadows /usr/bin/open in the dev session so things open on YOUR Mac over
+# the reverse tunnel instead of the remote's headless display:
+#   • http(s) URLs   → browser on your Mac          (/open route)
+#   • existing files → streamed to your Mac & opened (/file route — Preview, QuickLook…)
+#   • anything else  → real /usr/bin/open here       (dirs, apps, -a flags, missing paths)
+# If the tunnel/listener is down, falls back to /usr/bin/open on the remote so nothing
+# silently breaks.
 PORT="@@HANDOFF_PORT@@"
 TOKEN="@@HANDOFF_TOKEN@@"
 
@@ -14,6 +17,17 @@ for a in "$@"; do
              --data-urlencode "token=$TOKEN" --data-urlencode "url=$a" >/dev/null 2>&1; then
         /usr/bin/open "$a"   # tunnel/listener unavailable → open here as a fallback
       fi ;;
-    *) /usr/bin/open "$a" ;;
+    *)
+      if [ -f "$a" ]; then
+        # Stream the bytes to the listener over the reverse tunnel; it writes a copy
+        # on your Mac and opens it. --fail so a listener error → local fallback below.
+        if ! curl -sf --max-time 30 --data-binary @"$a" \
+               -H "X-Filename: $(basename "$a")" \
+               "http://localhost:$PORT/file?token=$TOKEN" >/dev/null 2>&1; then
+          /usr/bin/open "$a"   # tunnel/listener unavailable → open here as a fallback
+        fi
+      else
+        /usr/bin/open "$a"     # dirs, apps, -a flags, missing paths → real open
+      fi ;;
   esac
 done
