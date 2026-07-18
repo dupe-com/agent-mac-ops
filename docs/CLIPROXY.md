@@ -20,9 +20,11 @@ Idempotent — safe to re-run. It:
    they're replaced)
 3. starts it as a Homebrew service (`brew services`) so it survives reboots
 4. runs the ChatGPT/Codex OAuth login if no provider is connected yet (browser flow)
-5. verifies the model list end-to-end and prints the `claude-gpt` shell alias
+5. verifies the model list end-to-end and prints the `xclaude` shell alias
 
-Then either paste the printed alias into your shell config, or:
+If your zshrc sources `control/shell-snippet.sh` (the standard agent-mac-ops setup),
+**`xclaude` is already defined** — the snippet guards on the generated key, so it appears
+automatically once the installer has run. Just open a new shell. Not using the snippet?
 
 ```bash
 ./control/bin/install-cliproxy.sh --install-alias   # appends to ~/.zshrc.local
@@ -31,8 +33,8 @@ Then either paste the printed alias into your shell config, or:
 ## Daily use
 
 ```bash
-claude-gpt                          # Claude Code on gpt-5.6-sol
-CLIPROXY_MODEL=gpt-5.5 claude-gpt   # any other exposed model
+xclaude                          # Claude Code on gpt-5.6-sol
+CLIPROXY_MODEL=gpt-5.5 xclaude   # any other exposed model
 ./control/bin/install-cliproxy.sh status   # service / auth / model list
 ```
 
@@ -58,7 +60,7 @@ box-fwd 1455                      # forward the Codex callback port
 cliproxyapi -codex-login -no-browser   # on the remote; paste the printed URL into your laptop browser
 ```
 
-Once logged in, agents on the box can use `claude-gpt` like any other command.
+Once logged in, agents on the box can use `xclaude` like any other command.
 
 ## Caveats (read before relying on it)
 

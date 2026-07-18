@@ -141,3 +141,18 @@ alias @@ALIAS_NAME@@-pull="@@ROOT@@/control/bin/xfer.sh pull"
 if ! command -v ports >/dev/null 2>&1; then
   alias ports="@@ROOT@@/control/bin/ports.sh"
 fi
+
+# xclaude — Claude Code on other models (gpt-5.6-sol by default) through the local
+# CLIProxyAPI proxy. Optional: only defined once install-cliproxy.sh has run on this
+# Mac (it guards on the generated key). See docs/CLIPROXY.md.
+#   xclaude                          Claude Code on gpt-5.6-sol
+#   CLIPROXY_MODEL=gpt-5.5 xclaude   any other model (install-cliproxy.sh status → list)
+if [ -f "$HOME/.cli-proxy-api/.local-api-key" ]; then
+  xclaude() {
+    ANTHROPIC_BASE_URL="http://localhost:8317" \
+    ANTHROPIC_AUTH_TOKEN="$(cat "$HOME/.cli-proxy-api/.local-api-key")" \
+    ANTHROPIC_MODEL="${CLIPROXY_MODEL:-gpt-5.6-sol}" \
+    ANTHROPIC_SMALL_FAST_MODEL="${CLIPROXY_SMALL_MODEL:-gpt-5.4-mini}" \
+    claude "$@"
+  }
+fi
