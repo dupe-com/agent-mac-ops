@@ -8,7 +8,9 @@
 #
 #   ./install-cliproxy.sh              install + configure + verify (idempotent)
 #   ./install-cliproxy.sh --login codex    (re)run a provider OAuth login
-#   ./install-cliproxy.sh --install-alias  append the claude-gpt alias to ~/.zshrc.local
+#   ./install-cliproxy.sh --install-alias  append the xclaude alias to ~/.zshrc.local
+#                                          (sourcing control/shell-snippet.sh already
+#                                           defines xclaude once this installer has run)
 #   ./install-cliproxy.sh status       show service, auth files, and model list
 #
 # Everything is local-only: the proxy binds localhost, the API key is generated
@@ -36,9 +38,9 @@ models() {
 alias_block() {
   cat <<'EOF'
 # --- agent-mac-ops: claude via CLIProxyAPI (install-cliproxy.sh) ---
-# claude-gpt            → Claude Code on gpt-5.6-sol through the local proxy
-# CLIPROXY_MODEL=gpt-5.5 claude-gpt   → pick another model (see `install-cliproxy.sh status`)
-claude-gpt() {
+# xclaude            → Claude Code on gpt-5.6-sol through the local proxy
+# CLIPROXY_MODEL=gpt-5.5 xclaude   → pick another model (see `install-cliproxy.sh status`)
+xclaude() {
   ANTHROPIC_BASE_URL="http://localhost:8317" \
   ANTHROPIC_AUTH_TOKEN="$(cat ~/.cli-proxy-api/.local-api-key)" \
   ANTHROPIC_MODEL="${CLIPROXY_MODEL:-gpt-5.6-sol}" \
@@ -74,7 +76,7 @@ case "${1:-install}" in
       log "alias already in ~/.zshrc.local"
     else
       alias_block >> ~/.zshrc.local
-      log "appended claude-gpt alias to ~/.zshrc.local — open a new shell to use it"
+      log "appended xclaude alias to ~/.zshrc.local — open a new shell to use it"
     fi
     exit 0 ;;
   install) ;;
@@ -145,4 +147,5 @@ log "done. Launch Claude Code on a proxied model with:"
 echo
 alias_block
 echo
-log "(append it permanently with: $0 --install-alias)"
+log "(sourcing control/shell-snippet.sh in your zshrc? xclaude is already defined — just open a new shell."
+log " otherwise append it permanently with: $0 --install-alias)"

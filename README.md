@@ -53,8 +53,8 @@
   installed.
 - 📊 **Optional daily health digest** to Slack / Discord / any webhook.
 - 🔀 **Other models inside Claude Code (optional).** One script installs
-  [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) as a local service and wires a
-  `claude-gpt` alias — Claude Code running `gpt-5.6-sol` (or Gemini, Kimi, …) on your existing
+  [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) as a local service and wires an
+  `xclaude` alias — Claude Code running `gpt-5.6-sol` (or Gemini, Kimi, …) on your existing
   ChatGPT subscription, locally or on the box. ([details →](docs/CLIPROXY.md))
 - 👥 **Team provisioning.** One command adds a new developer account with their own named host
   (`alice.studio`, `bob.studio` …) and loopback IP — everyone's dev servers run on standard ports
