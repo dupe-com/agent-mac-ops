@@ -38,8 +38,12 @@ build_forwards() {
   # so it survives drops/sleep/reboot independently of any shell session and never
   # collides with this master on the remote's :$HANDOFF_PORT bind. The session master
   # carries only the -L dev-server forwards.
+  # Bind each forward on BOTH loopback families. A bare `-L $p:...` binds IPv4
+  # loopback only, but macOS resolves `localhost` to `::1` first — so the browser
+  # hits [::1]:$p, finds nothing listening, and `localhost:$p` hangs while
+  # `127.0.0.1:$p` works. Explicit v4 + v6 binds make `localhost` work either way.
   local f="" p
-  for p in ${FORWARD_PORTS:-}; do f="${f:+$f }-L $p:localhost:$p"; done
+  for p in ${FORWARD_PORTS:-}; do f="${f:+$f }-L 127.0.0.1:$p:localhost:$p -L [::1]:$p:localhost:$p"; done
   SSH_FORWARDS="$f"
 }
 
