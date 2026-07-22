@@ -51,6 +51,12 @@
   auto-reconnecting `kubectl port-forward`s. `brew install dupe-com/tap/ports-cli`. A minimal fzf
   fallback ships in `control/bin/ports.sh` — the shell snippet only aliases it when ports-cli isn't
   installed.
+- 🧠 **Know what every Claude session was doing.** Companion project:
+  [**sitrep**](https://github.com/dupe-com/sitrep) — typing `claude` auto-splits a live 7-line strip
+  under the pane: your ask, busy/waiting status, and an AI 3-line brief (done / now / next). Works in
+  local panes and through this repo's `tmux -CC` remote panes alike; on the laptop, `sitrep` lists
+  sessions on the box next to local ones. Install on both machines:
+  `git clone git@github.com:dupe-com/sitrep.git ~/Work/sitrep && ~/Work/sitrep/install.sh`.
 - 📊 **Optional daily health digest** to Slack / Discord / any webhook.
 - 🔀 **Other models inside Claude Code (optional).** One script installs
   [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) as a local service and wires an
