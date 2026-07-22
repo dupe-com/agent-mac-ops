@@ -16,8 +16,13 @@ PORT="@@HANDOFF_PORT@@"
 TOKEN="@@HANDOFF_TOKEN@@"
 
 target="${1:-.}"
-abs="$(cd "$target" 2>/dev/null && pwd)" || {
-  echo "code-@@ALIAS_NAME@@: no such directory: $target" >&2; exit 1; }
+if [ -d "$target" ]; then
+  abs="$(cd "$target" && pwd)"
+elif [ -e "$target" ]; then
+  abs="$(cd "$(dirname "$target")" && pwd)/$(basename "$target")"
+else
+  echo "code-@@ALIAS_NAME@@: no such file or directory: $target" >&2; exit 1
+fi
 
 if curl -s --max-time 4 "http://localhost:$PORT/cursor" \
        --data-urlencode "token=$TOKEN" --data-urlencode "path=$abs" >/dev/null 2>&1; then
