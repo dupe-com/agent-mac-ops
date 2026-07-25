@@ -12,14 +12,21 @@
 # All surfaces share ONE multiplexed SSH master (same ControlPath as box-fwd), so
 # splits open instantly with no re-auth and the master alone carries the port
 # forwards / browser-handoff reverse tunnel — no per-split forward conflicts. The
-# master is created (with forwards) by the `@@ALIAS_NAME@@` shell function before
-# Ghostty launches; ControlMaster=auto here just reuses it (or makes a plain one
-# if it died — forwards degrade, the shell still works).
+# master is normally created (with forwards) by the `@@ALIAS_NAME@@` shell function
+# before Ghostty launches; ControlMaster=auto below just reuses it.
+#
+# But a split that outlives the master would remake it BARE — same ControlPath, no
+# -L forwards — and every later split, plus box-fwd, would then happily reuse that
+# forward-less master. Remote dev servers silently stop reaching localhost here.
+# ssh-master.sh forecloses that: it opens the master with the forwards, or tops up
+# whatever an existing one is missing. Cheap and idempotent, so every split runs it.
 set -uo pipefail
 ROOT="@@ROOT@@"
 [ -f "$ROOT/config.env" ] && . "$ROOT/config.env"
 HOST="${REMOTE_HOST:-@@REMOTE_HOST@@}"
 CP="$HOME/.ssh/cm-%r@%h:%p"
+
+"$ROOT/control/bin/ssh-master.sh" 2>/dev/null || true
 
 case "${1:-native}" in
   tmux) REMOTE_MODE="ghostty-tmux" ;;
