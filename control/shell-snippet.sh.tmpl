@@ -20,7 +20,7 @@ export ITERM_ENABLE_SHELL_INTEGRATION_WITH_TMUX=1
 # only the master holds the forwards so splits never collide on them.
 _amo_cp="$HOME/.ssh/cm-%r@%h:%p"
 
-# @@SSH_FORWARDS@@ = the -L dev-server forwards (FORWARD_PORTS), so remote dev servers
+# The master carries a -L forward per FORWARD_PORTS entry, so remote dev servers
 # and OAuth localhost callbacks reach your Mac. The browser/editor handoff REVERSE
 # tunnel (-R) is NOT here — it's owned by a separate self-healing launchd agent
 # (control/bin/install-handoff-tunnel.sh) that survives drops/sleep on its own, so it
@@ -40,6 +40,15 @@ _amo_iterm() {
 }
 
 _amo_master() {   # ensure one multiplexed master carrying the forwards
+  # ssh-master.sh opens the master AND reconciles its forwards against
+  # FORWARD_PORTS. Don't inline `-O check && return` here: a live master proves
+  # only that the socket answers, not that it carries the -L forwards — it won't
+  # if it was born before a FORWARD_PORTS change, or opened by something that
+  # doesn't know about them (a Ghostty split, box-fwd, a hand-run `ssh -L`).
+  # That's the "bun dev works on the remote but localhost:3000 hangs here" bug.
+  "@@ROOT@@/control/bin/ssh-master.sh" 2>/dev/null && return 0
+  # Fallback — repo moved/renamed and the script is gone. Old behaviour: open a
+  # master with the forwards baked in at render time, reuse whatever exists.
   ssh -o ControlPath="$_amo_cp" -O check @@REMOTE_HOST@@ 2>/dev/null && return 0
   ssh -o ControlMaster=yes -o ControlPath="$_amo_cp" -o ControlPersist=4h \
       -fNT @@SSH_FORWARDS@@ @@REMOTE_HOST@@ 2>/dev/null || true
@@ -96,6 +105,8 @@ unalias @@ALIAS_NAME@@ @@ALIAS_NAME@@-tmux 2>/dev/null || true
 #   @@ALIAS_NAME@@-fwd 54321            forward localhost:54321 ⇄ remote
 #   @@ALIAS_NAME@@-fwd oauth '<url>'    forward the URL's callback port + open it here
 #   @@ALIAS_NAME@@-fwd cancel 54321     stop forwarding it
+#   @@ALIAS_NAME@@-fwd sync             re-apply every FORWARD_PORTS forward — the fix
+#                                when a remote dev server won't answer on localhost
 alias @@ALIAS_NAME@@-fwd="@@ROOT@@/control/bin/box-fwd.sh"
 
 # Push your clipboard IMAGE to the remote's clipboard (screenshots → Ctrl+V in a

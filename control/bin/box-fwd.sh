@@ -5,6 +5,9 @@
 #
 #   box-fwd 3000 8080         forward localhost:3000 & :8080 ⇄ remote (your Mac → remote)
 #   box-fwd cancel 3000       stop forwarding port 3000
+#   box-fwd sync              re-apply every FORWARD_PORTS forward to the live master
+#                             — the fix when `bun dev` runs on the remote but
+#                             http://localhost:3000 hangs here
 #   box-fwd oauth '<url>'     parse the localhost callback port out of an OAuth URL,
 #                             forward it, then open the URL in your Mac's browser
 set -euo pipefail
@@ -13,14 +16,22 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 HOST="${REMOTE_HOST:?REMOTE_HOST not set — run ./setup.sh or export it}"
 
 CM=(-o ControlMaster=auto -o ControlPath="$HOME/.ssh/cm-%r@%h:%p" -o ControlPersist=10m)
-master() { ssh "${CM[@]}" -O check "$HOST" 2>/dev/null || ssh "${CM[@]}" -fN "$HOST"; }
+# Via ssh-master.sh, so an ad-hoc `box-fwd 54321` can never leave a BARE master on
+# the shared ControlPath — one that later callers would reuse, quietly stranding
+# every FORWARD_PORTS dev-server forward. It falls back to a plain master only if
+# the script is missing.
+master() {
+  "$ROOT/control/bin/ssh-master.sh" 2>/dev/null && return 0
+  ssh "${CM[@]}" -O check "$HOST" 2>/dev/null || ssh "${CM[@]}" -fN "$HOST"
+}
 fwd()    { master; ssh "${CM[@]}" -O forward -L "$1:localhost:$1" "$HOST" && echo "→ localhost:$1 ⇄ $HOST:$1"; }
 cancel() { ssh "${CM[@]}" -O cancel  -L "$1:localhost:$1" "$HOST" 2>/dev/null && echo "✕ stopped $1" || echo "(not forwarding $1)"; }
 
 action="${1:-}"
 case "$action" in
-  "" ) echo "usage: box-fwd <port...> | box-fwd cancel <port...> | box-fwd oauth <url>" >&2; exit 1 ;;
+  "" ) echo "usage: box-fwd <port...> | box-fwd cancel <port...> | box-fwd sync | box-fwd oauth <url>" >&2; exit 1 ;;
   cancel) shift; for p in "$@"; do cancel "$p"; done ;;
+  sync) "$ROOT/control/bin/ssh-master.sh" -v ;;
   oauth)
     url="${2:?usage: box-fwd oauth <url>}"
     # callback port appears as localhost:PORT or url-encoded localhost%3APORT
