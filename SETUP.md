@@ -358,11 +358,26 @@ And add to your laptop's `/etc/hosts`:
 
 After that, `http://bob.studio:3000` works in your browser exactly as it does on the remote.
 
+### Two config values each user must set
+
+`provision-user.sh` sets up the account, the loopback alias and the hostname on the remote. It
+does **not** touch anyone's `config.env`, which lives on each person's own laptop. Two values
+there are per-user, and both fail *silently* if left at the default — nothing errors, the wrong
+thing simply happens:
+
+| Value | Set it to | If you don't |
+|---|---|---|
+| `REMOTE_BIND` | your `127.0.0.<index>` | Forwards resolve on the remote, so the default `localhost` is the remote's own 127.0.0.1 — the admin's slot 1. Your `localhost:3000` reaches **their** dev server; the tunnel opens and something answers, so nothing looks broken. |
+| `HANDOFF_PORT` | `18000 + <index>` | The browser-handoff reverse tunnel binds this on the remote's 127.0.0.1 — one host-wide namespace that loopback aliases and separate macOS accounts do **not** divide. Share a value and the second person's tunnel never binds, re-dialling forever. |
+
+`generate-invite.sh` prints both values for the user it was run for. `./setup.sh` prompts for
+them, defaulting to the single-user behaviour so an existing solo setup is unaffected.
+
 ### Host registry
 
-Assigned slots are tracked in `docs/host-registry.md` (created automatically). Check it before
-adding a new user. Index 1 (`127.0.0.1`) is reserved for the admin — it always exists and needs
-no alias or LaunchDaemon.
+Assigned slots are tracked in `docs/host-registry.md` (created automatically), along with each
+user's handoff port. Check it before adding a new user, and add a row when you do. Index 1
+(`127.0.0.1`) is reserved for the admin — it always exists and needs no alias or LaunchDaemon.
 
 ---
 

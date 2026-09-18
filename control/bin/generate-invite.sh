@@ -27,6 +27,10 @@ fi
 
 LOOPBACK_IP="127.0.0.${INDEX}"
 STUDIO_HOST="${USERNAME}.studio"
+# Handoff ports must be unique per user: the reverse tunnel binds on the remote's
+# 127.0.0.1, one host-wide namespace that loopback aliases do not divide. Rule and
+# registry: docs/host-registry.md.
+HANDOFF_PORT_SUGGESTED="$((18000 + INDEX))"
 OUT_DIR="$ROOT/onboard"
 OUT="$OUT_DIR/${USERNAME}-setup.sh"
 
@@ -241,4 +245,10 @@ else
   echo ""
   echo "   Then: ./users provision ${USERNAME}"
 fi
+echo ""
+echo "📋  Record ${USERNAME} in docs/host-registry.md, and make sure their config.env"
+echo "    carries BOTH per-user values — each one fails silently at the default:"
+echo ""
+echo "      REMOTE_BIND=\"${LOOPBACK_IP}\"      # else their forwards land on the admin's dev servers"
+echo "      HANDOFF_PORT=\"${HANDOFF_PORT_SUGGESTED}\"          # else their handoff tunnel can never bind"
 echo ""
