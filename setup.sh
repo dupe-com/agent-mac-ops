@@ -42,8 +42,11 @@ build_forwards() {
   # loopback only, but macOS resolves `localhost` to `::1` first — so the browser
   # hits [::1]:$p, finds nothing listening, and `localhost:$p` hangs while
   # `127.0.0.1:$p` works. Explicit v4 + v6 binds make `localhost` work either way.
-  local f="" p
-  for p in ${FORWARD_PORTS:-}; do f="${f:+$f }-L 127.0.0.1:$p:localhost:$p -L [::1]:$p:localhost:$p"; done
+  # The forward's DESTINATION resolves on the remote, so `localhost` there means the
+  # remote's own 127.0.0.1 -- the admin's slot-1 loopback on a shared Mac. REMOTE_BIND
+  # overrides it with your own 127.0.0.<index>; unset keeps single-user setups as-is.
+  local f="" p d="${REMOTE_BIND:-localhost}"
+  for p in ${FORWARD_PORTS:-}; do f="${f:+$f }-L 127.0.0.1:$p:$d:$p -L [::1]:$p:$d:$p"; done
   SSH_FORWARDS="$f"
 }
 
@@ -63,8 +66,9 @@ case "$cmd" in
     PROFILE_NAME="$(ask 'iTerm2 profile name (see SETUP.md)' "$PROFILE_NAME")"
     GHOSTTY_REMOTE_COLOR="$(ask 'Ghostty remote background tint, hex (blank = no tint)' "${GHOSTTY_REMOTE_COLOR:-#2a1f3d}")"
     FORWARD_PORTS="$(ask 'ports to auto-forward on connect (space-sep, blank = none)' "${FORWARD_PORTS:-}")"
+    REMOTE_BIND="$(ask 'forward destination on the remote (your 127.0.0.<index> on a shared Mac; localhost = admin)' "${REMOTE_BIND:-localhost}")"
     HANDOFF_ENABLED="$(ask 'open remote auth URLs on this Mac? (true/false)' "${HANDOFF_ENABLED:-true}")"
-    HANDOFF_PORT="$(ask 'handoff listener port' "${HANDOFF_PORT:-17999}")"
+    HANDOFF_PORT="$(ask 'handoff listener port (MUST be unique per user on a shared remote: 18000 + your index)' "${HANDOFF_PORT:-17999}")"
     NOTIFY_WEBHOOK="$(ask 'notify webhook URL (blank = log-only)' "${NOTIFY_WEBHOOK:-}")"
     NOTIFY_KEY="$(ask 'webhook json key (slack/mattermost=text, discord=content)' "${NOTIFY_KEY:-text}")"
     EXTRA_LOG="$(ask 'extra remote log to surface in logs.sh (blank = none)' "${EXTRA_LOG:-}")"
@@ -86,6 +90,7 @@ PROFILE_NAME="$PROFILE_NAME"
 GHOSTTY_REMOTE_COLOR="$GHOSTTY_REMOTE_COLOR"
 MOSH_SERVER="${MOSH_SERVER:-}"
 FORWARD_PORTS="$FORWARD_PORTS"
+REMOTE_BIND="${REMOTE_BIND:-localhost}"
 HANDOFF_ENABLED="$HANDOFF_ENABLED"
 HANDOFF_PORT="$HANDOFF_PORT"
 HANDOFF_TOKEN="$HANDOFF_TOKEN"

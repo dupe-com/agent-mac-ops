@@ -27,9 +27,17 @@ CP="$HOME/.ssh/cm-%r@%h:%p"
 V=0; [ "${1:-}" = "-v" ] && V=1
 say() { [ "$V" = 1 ] && printf '%s\n' "$*"; return 0; }
 
+# Where each forward LANDS on the remote. `localhost` resolves ON THE REMOTE, to its
+# own 127.0.0.1 -- which on a shared Mac is the ADMIN's slot-1 loopback, not yours.
+# A provisioned teammate who leaves this at the default tunnels into the admin's dev
+# servers while their own sit unreachable, and nothing reports it: the forward opens
+# fine and something does answer on the other end. Set REMOTE_BIND to your own
+# 127.0.0.<index>. Unset keeps single-user setups working exactly as before.
+DEST="${REMOTE_BIND:-localhost}"
+
 # Bind every forward on BOTH loopback families: macOS resolves `localhost` to ::1
 # first, so a v4-only bind leaves `localhost:3000` hanging while 127.0.0.1:3000 works.
-binds() { printf '127.0.0.1:%s:localhost:%s\n[::1]:%s:localhost:%s\n' "$1" "$1" "$1" "$1"; }
+binds() { printf '127.0.0.1:%s:%s:%s\n[::1]:%s:%s:%s\n' "$1" "$DEST" "$1" "$1" "$DEST" "$1"; }
 
 # --- no master yet → open one carrying the full forward set ---
 if ! ssh -o ControlPath="$CP" -O check "$HOST" 2>/dev/null; then
@@ -53,7 +61,7 @@ bound="$(lsof -nP -iTCP -sTCP:LISTEN -Fn 2>/dev/null | awk '/^n/{print substr($0
 added=""
 for p in ${FORWARD_PORTS:-}; do
   while IFS= read -r b; do
-    lb="${b%%:localhost:*}"
+    lb="${b%%:"$DEST":*}"
     printf '%s\n' "$bound" | grep -Fqx "$lb" && continue
     ssh -o ControlPath="$CP" -O forward -L "$b" "$HOST" 2>/dev/null \
       && added="${added:+$added }$lb"
