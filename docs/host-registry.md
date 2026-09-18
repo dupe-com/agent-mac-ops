@@ -5,9 +5,13 @@ Dev servers run on standard ports — web :3000, api :8080 — bound to the user
 
 | User | Index | Loopback IP | Hostname | Handoff port |
 |------|-------|-------------|----------|--------------|
-| _admin_ | 1 | 127.0.0.1 | (the remote itself) | 17999 |
-| bobby | 2 | 127.0.0.2 | bobby.studio | 18002 |
-| marko | 3 | 127.0.0.3 | marko.studio | 18003 |
+| _admin_ | 1 | 127.0.0.1 | (the remote itself) | 17999 (in use) |
+| bobby | 2 | 127.0.0.2 | bobby.studio | 18002 _(reserved)_ |
+| marko | 3 | 127.0.0.3 | marko.studio | 18003 _(reserved)_ |
+
+Only the admin's port is actually configured anywhere. The other rows are what the
+rule below reserves for those slots — nobody has set them in a `config.env` yet, so
+treat them as claimed, not live, and set them the next time each person is onboarded.
 
 ## The two values every user must set
 
