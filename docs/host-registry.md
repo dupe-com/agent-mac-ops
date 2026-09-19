@@ -6,12 +6,11 @@ Dev servers run on standard ports — web :3000, api :8080 — bound to the user
 | User | Index | Loopback IP | Hostname | Handoff port |
 |------|-------|-------------|----------|--------------|
 | _admin_ | 1 | 127.0.0.1 | (the remote itself) | 17999 (in use) |
-| bobby | 2 | 127.0.0.2 | bobby.studio | 18002 _(reserved)_ |
-| marko | 3 | 127.0.0.3 | marko.studio | 18003 _(reserved)_ |
 
-Only the admin's port is actually configured anywhere. The other rows are what the
-rule below reserves for those slots — nobody has set them in a `config.env` yet, so
-treat them as claimed, not live, and set them the next time each person is onboarded.
+No developer slots are assigned. bobby (2) and marko (3) were deprovisioned on
+2026-09-18, so both indices — and their loopback IPs, hostnames and handoff ports —
+are free to reuse. Only the admin's port is configured anywhere; a row added here is
+claimed, not live, until the person sets both values below in their own `config.env`.
 
 ## The two values every user must set
 
