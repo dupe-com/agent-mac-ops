@@ -52,7 +52,11 @@ list_users() {
       "$user" "$index" "$ip" "$host"
     found=1
   done < "$REGISTRY"
-  [[ $found -eq 0 ]] && echo "  ${DIM}(none yet)${RESET}"
+  # Not `[[ ... ]] && echo`: when rows exist the test is false, the function returns
+  # non-zero, and `set -e` kills every caller before it prints anything further.
+  if [[ $found -eq 0 ]]; then
+    echo "  ${DIM}(none yet)${RESET}"
+  fi
 }
 
 # Return the lowest free index (1-9) not already in the registry
@@ -174,6 +178,67 @@ cmd_add() {
   fi
 }
 
+cmd_remove() {
+  local username; username=$(require_username "${1:-}")
+  local index; index=$(lookup_index "$username")
+
+  if [[ -z "$index" ]]; then
+    err "${username} is not in the registry — nothing to remove."
+    exit 1
+  fi
+  if [[ "$index" == "1" ]]; then
+    err "Slot 1 is the admin; it is not removable."
+    exit 1
+  fi
+
+  echo ""
+  hdr "Removing ${username} (slot ${index})"
+  echo ""
+  note "This command frees the registry row. It does ${BOLD}not${RESET} touch the box."
+  echo ""
+  echo "  Run these on ${BOLD}${REMOTE_HOST}${RESET} first — provisioning created five"
+  echo "  things and the account alone is not enough. SACL first, while the name"
+  echo "  still resolves; archive the home directory before deleting it."
+  echo ""
+  echo "    ${CYAN}sudo dseditgroup -o edit -d ${username} -t user com.apple.access_ssh${RESET}"
+  echo "    ${CYAN}sudo launchctl bootout system /Library/LaunchDaemons/com.agent-mac-ops.loopback.${username}.plist${RESET}"
+  echo "    ${CYAN}sudo rm /Library/LaunchDaemons/com.agent-mac-ops.loopback.${username}.plist${RESET}"
+  echo "    ${CYAN}sudo ifconfig lo0 -alias 127.0.0.${index}${RESET}"
+  echo "    ${CYAN}sudo sed -i '' '/[[:space:]]${username}\.studio\$/d' /etc/hosts${RESET}"
+  echo "    ${CYAN}sudo sysadminctl -deleteUser ${username}${RESET}"
+  echo ""
+  note "Not reversed by any of the above: their tailnet node (remove it in the"
+  note "Tailscale admin console) and anything handed over out of band — dotenvx"
+  note "keys from 1Password most of all. Removing the account does not rotate them."
+  echo ""
+  hr
+  echo ""
+  read -r -p "  Drop ${username} from the registry, freeing slot ${index}? [y/N] " confirm
+  echo ""
+
+  if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+    note "Left the registry alone."
+    return 0
+  fi
+
+  local tmp; tmp=$(mktemp)
+  # Match the row by its second pipe-delimited cell, so a username that also
+  # appears in the prose above the table cannot take the wrong line out.
+  awk -F'|' -v u="$username" '
+    { cell = $2; gsub(/^[ \t]+|[ \t]+$/, "", cell); if (cell == u) next; print }
+  ' "$REGISTRY" > "$tmp"
+
+  if cmp -s "$tmp" "$REGISTRY"; then
+    rm -f "$tmp"
+    err "No row matched ${username} — registry unchanged."
+    exit 1
+  fi
+
+  mv "$tmp" "$REGISTRY"
+  ok "Removed ${username}; slot ${index} is free."
+  echo ""
+}
+
 cmd_help() {
   echo ""
   hdr "Team Mac — User Management"
@@ -185,6 +250,7 @@ cmd_help() {
   echo "    ${CYAN}./users add [name]${RESET}        onboard a new user end-to-end"
   echo "    ${CYAN}./users invite [name]${RESET}     generate their setup script only"
   echo "    ${CYAN}./users provision [name]${RESET}  provision after receiving their SSH key"
+  echo "    ${CYAN}./users remove [name]${RESET}     free their slot after deprovisioning"
   echo "    ${CYAN}./users list${RESET}              show current users"
   echo ""
   hr
@@ -196,6 +262,7 @@ case "${1:-help}" in
   add|new)      cmd_add      "${2:-}" ;;
   invite)       cmd_invite   "${2:-}" ;;
   provision)    cmd_provision "${2:-}" ;;
+  remove|rm)    cmd_remove   "${2:-}" ;;
   list|ls)      cmd_list ;;
   help|--help)  cmd_help ;;
   *)
