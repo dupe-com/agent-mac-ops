@@ -42,6 +42,7 @@ fi
 
 LOOPBACK_IP="127.0.0.${INDEX}"
 STUDIO_HOST="${USERNAME}.studio"
+HANDOFF_PORT_FOR_USER="1800${INDEX}"
 
 # ── public key ────────────────────────────────────────────────────────────────
 if [[ -n "$PUBKEY_FILE" ]]; then
@@ -227,12 +228,15 @@ if [[ ! -f "$REGISTRY" ]]; then
 Each developer on the shared Mac Studio gets a loopback IP and named hostname.
 Dev servers run on standard ports — web :3000, api :8080 — bound to the user's IP.
 
-| User | Index | Loopback IP | Hostname |
-|------|-------|-------------|----------|
+| User | Index | Loopback IP | Hostname | Handoff port |
+|------|-------|-------------|----------|--------------|
 EOF
 fi
 
 if ! grep -q "| $USERNAME " "$REGISTRY" 2>/dev/null; then
-  printf '| %s | %s | %s | %s |\n' "$USERNAME" "$INDEX" "$LOOPBACK_IP" "$STUDIO_HOST" >> "$REGISTRY"
+  # Five columns, matching the table header. The handoff port is per-user and fails
+  # silently when two people share one, so the registry has to carry it.
+  printf '| %s | %s | %s | %s | %s |\n' \
+    "$USERNAME" "$INDEX" "$LOOPBACK_IP" "$STUDIO_HOST" "$HANDOFF_PORT_FOR_USER" >> "$REGISTRY"
   echo "→ recorded in docs/host-registry.md"
 fi

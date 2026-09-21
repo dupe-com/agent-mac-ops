@@ -12,6 +12,11 @@ No developer slots are assigned. bobby (2) and marko (3) were deprovisioned on
 are free to reuse. Only the admin's port is configured anywhere; a row added here is
 claimed, not live, until the person sets both values below in their own `config.env`.
 
+Their rows outlived the accounts, because until `./users remove` existed nothing took
+a row back out. If a row here does not match a real account on the box, the row is
+wrong — `./users list`, `./users add` and `provision-user.sh` all read this file and
+nothing else, so a stale row silently costs you that slot.
+
 ## The two values every user must set
 
 `provision-user.sh` creates the account, the loopback alias and the hostname. It does
@@ -27,8 +32,13 @@ there are per-user, and both fail quietly if left at the default:
   **not** divide it, and neither do separate macOS accounts. Two people sharing a value
   means the second tunnel can never bind and re-dials forever.
 
+Neither value has ever been set by a real second user — both slots were provisioned
+before the per-user fix landed. The first teammate onboarded after it is also the
+first real test of it.
+
 Index 1 (`127.0.0.1`) is the admin — it always exists and needs no alias or LaunchDaemon.
 The admin's handoff port is historically 17999, which predates the `18000 + index` rule;
 it is left alone because the remote's `~/bin/open` shim has it baked in.
 
-Slots run 1–9. Claim the next free row here before running `provision-user.sh`.
+Slots run 1–9. Claim the next free row here before running `provision-user.sh`, and
+run `./users remove <name>` when someone leaves so the slot comes back.
