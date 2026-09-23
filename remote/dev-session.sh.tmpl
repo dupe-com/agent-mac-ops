@@ -57,6 +57,18 @@ tmux_inherit_cwd() {
   tmux set -g "command-alias[101]" "new-window=new-window -c \"#{pane_current_path}\"" 2>/dev/null
 }
 
+# Create-or-keep the session. With tmux persistence pushed (./setup.sh remote), a fresh
+# tmux server — first connect after a reboot or power loss — restores the last saved
+# windows first; see tmux-persist.sh.
+PERSIST="$HOME/.agent-mac-ops/tmux-persist.sh"
+ensure_session() {
+  if [ -x "$PERSIST" ]; then
+    "$PERSIST" ensure "$SESSION" "$WORK_DIR"
+  else
+    tmux has-session -t "$SESSION" 2>/dev/null || tmux new-session -d -s "$SESSION" -c "$WORK_DIR"
+  fi
+}
+
 case "$MODE" in
   ghostty-native)
     export COLORTERM=truecolor   # client is Ghostty → keep 24-bit color even on the xterm-256color fallback
@@ -69,12 +81,12 @@ case "$MODE" in
     # anyway (harmless) — the persistence + snappy echo are the point of this mode.
     export COLORTERM=truecolor
     tint; trap untint EXIT INT TERM
-    tmux has-session -t "$SESSION" 2>/dev/null || tmux new-session -d -s "$SESSION" -c "$WORK_DIR"
+    ensure_session
     tmux_inherit_cwd
     tmux attach -t "$SESSION" ;;
 
   *)  # iterm / default — control mode, native iTerm panes
-    tmux has-session -t "$SESSION" 2>/dev/null || tmux new-session -d -s "$SESSION" -c "$WORK_DIR"
+    ensure_session
     tmux_inherit_cwd
     exec tmux -CC attach -t "$SESSION" ;;
 esac

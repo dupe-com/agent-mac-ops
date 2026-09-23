@@ -21,9 +21,19 @@ Do these once, on the remote itself (or over an existing SSH session):
    ```bash
    sudo pmset -a sleep 0           # never sleep
    sudo pmset -a disablesleep 1    # laptops only: stay awake with the lid closed
+   sudo pmset -a autorestart 1     # power back on by itself after an outage
    ```
+   With **FileVault** on, a Mac that restarts (power cut, update) stops at the disk-unlock screen and
+   stays off the network until someone types the password *at the machine*. That's the trade for an
+   encrypted disk; a small UPS avoids most of those trips. Your tmux windows come back afterwards
+   either way — see [§4d](#4d-surviving-a-reboot-or-power-loss).
 4. **(Recommended) Tailscale:** install it on both machines and sign in, so the remote is reachable
-   from anywhere without exposing SSH to the internet.
+   from anywhere without exposing SSH to the internet. Use the **Standalone** app from
+   tailscale.com (fewer sandbox limits, faster updates than the App Store build) and **only one**
+   Tailscale — a leftover `brew install tailscale` daemon alongside the app just idles and shadows
+   the app's `tailscale` CLI on your `PATH`. The app connects once someone logs in, which with
+   FileVault on happens right at unlock anyway; only if FileVault is *off* does the open-source
+   `tailscaled` daemon buy you connectivity before login.
 
 Then add a Host alias on the **control** machine in `~/.ssh/config`, so `ssh <host>` just works:
 
@@ -201,6 +211,40 @@ rewrites the built-in `split-window`/`new-window`, so `Ctrl-b %`/`"` open where 
 > only when the link is laggy enough that predictive echo is worth giving up native panes.
 
 Re-source your shell snippet (or open a new terminal) after `./setup.sh remote` so `<alias>-mosh` is defined.
+
+---
+
+## 4d. Surviving a reboot or power loss
+
+tmux sessions live in memory, so a restart normally wipes every window you had open. With
+`TMUX_PERSIST="true"` (the default), `./setup.sh remote` installs
+[tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect) (pinned, into `~/.agent-mac-ops/` —
+a copy you manage with TPM is left alone) on the remote plus a small helper,
+`~/.agent-mac-ops/tmux-persist.sh`, that `dev-session.sh` and `revive.sh` create the session through.
+It's per account: each person who uses the full setup runs `./setup.sh remote` for themselves. Teammates onboarded with just the invite script connect with plain `ssh` (no tmux session), so there's nothing to persist for them until they switch to the full setup (see [Pro users](#pro-users-skip-the-wizard)).
+
+- **Saving** — every `TMUX_SAVE_INTERVAL` minutes (default 15), from a loop inside your tmux server.
+  Windows, their directories, splits and recent scrollback land in `~/.local/share/tmux/resurrect/`.
+  Save by hand with `prefix + Ctrl-s`.
+- **Restoring** — the first `<alias>` after the remote restarts recreates the session and restores
+  the last save *before* attaching, so your windows reappear as normal iTerm tabs. It happens **once
+  per boot**: if you stop tmux yourself (`kill-server`, closing the last window), the next connect
+  starts fresh instead of bringing back what you just closed. `prefix + Ctrl-r` restores by hand.
+- **Programs** — `TMUX_RESTORE_PROCESSES` relaunches matching programs in their panes. The default
+  brings Claude Code back with `claude --continue`, which reopens the latest conversation in that
+  directory — two Claude panes in one directory both reopen that same one (use `/resume` in the second
+  to pick the other). Add others in tmux-resurrect's syntax, e.g. `"~codex->codex resume --last"`;
+  `'false'` restores shells only.
+
+What doesn't come back: anything that was *running* (builds, dev servers, an agent mid-task) — the
+conversation is restored, the work in flight isn't, so tell each agent to pick up where it left off.
+Up to one interval of changes can be missing. Your `~/.tmux.conf` is never edited; the plugin is
+loaded at runtime. It's per-user, needs no GUI login, and doesn't use tmux-continuum (whose restore
+skips whenever another tmux server is running — always true on a shared remote — and whose save
+timer rides the status bar that `tmux -CC` never draws). Opt out with `TMUX_PERSIST="false"` and
+re-run `./setup.sh remote`; a save loop that's already running stops the next time the remote's tmux
+server restarts. Covers every mode that uses tmux — iTerm (`-CC`), `<alias>-tmux` and `<alias>-mosh`;
+Ghostty's native-splits mode has no tmux session, so there's nothing to save.
 
 ---
 

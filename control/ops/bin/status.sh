@@ -3,6 +3,7 @@
 # remote-run.sh, which prepends WORK_DIR/TMUX_SESSION). Plain text, one fact per
 # line, always exits 0 (report, don't fail). ⚠️ marks unambiguously-bad signals
 # only — so a daily digest stays green unless action is genuinely needed.
+export PATH=/opt/homebrew/bin:/usr/local/bin:$PATH   # shipped as non-login `bash -s`: Homebrew tmux isn't on PATH otherwise
 SESSION="${TMUX_SESSION:-dev}"
 WORK_DIR="${WORK_DIR:-~}"; WORK_DIR="${WORK_DIR/#\~/$HOME}"
 
