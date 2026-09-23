@@ -5,6 +5,7 @@ control/bin/ghostty-connect.sh
 remote/dev-session.sh
 remote/open-handoff.sh
 remote/code-handoff.sh
+remote/tmux-persist.sh
 
 # Personalized invite scripts (contain remote host address — don't commit)
 onboard/*-setup.sh

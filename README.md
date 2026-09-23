@@ -28,6 +28,9 @@
   `Cmd+D` / `Cmd+T` splits connected to the remote, normal keys, auto-colored so you never confuse it
   with localhost. Works in **iTerm2** (`tmux -CC`) and **Ghostty** (native splits), auto-detected.
   ([how it's done →](SETUP.md))
+- ♻️ **Survives reboots and power cuts.** Your remote tmux tabs (iTerm, or Ghostty's tmux/mosh modes) are saved every 15 minutes and come back on
+  the first connect after the remote restarts — same directories and splits, with Claude Code reopening
+  its last conversation in each. ([how →](SETUP.md#4d-surviving-a-reboot-or-power-loss))
 - ⚡ **Instant-feeling typing on slow links.** `box-mosh` connects over [mosh](https://mosh.org) for
   predictive local echo, so characters appear immediately even over high latency.
 - 🔐 **Log in without Screen Sharing.** Remote auth pages open on *your* Mac, and OAuth `localhost`

@@ -1,0 +1,85 @@
+#!/bin/bash
+# agent-mac-ops tmux persistence (lives on the remote at ~/.agent-mac-ops/; rendered +
+# pushed by `./setup.sh remote`). Makes the dev session survive a reboot or power loss:
+# windows, their directories, splits and recent scrollback come back, and programs
+# listed in TMUX_RESTORE_PROCESSES are relaunched in their panes.
+#
+#   tmux-persist.sh ensure <session> <dir>   create-or-keep the session; restore once per boot
+#   tmux-persist.sh save                     snapshot now
+#
+# Built on tmux-resurrect, cloned by setup.sh into ~/.agent-mac-ops/ (not ~/.tmux/plugins,
+# so a copy you manage with TPM is never touched) and loaded at runtime, so your own
+# ~/.tmux.conf is never edited. Deliberately NOT tmux-continuum:
+#   • its restore skips whenever ANY other tmux server is running — on a shared remote
+#     another user's server always is, so it would never fire;
+#   • its save timer rides the status bar, which iTerm's `tmux -CC` never draws.
+# Instead the save loop runs inside your tmux server (per-user, no launchd, no GUI login
+# needed; dies with the server), and restore is explicit — see ensure below.
+export PATH=/opt/homebrew/bin:/usr/local/bin:$PATH
+
+RESURRECT="$HOME/.agent-mac-ops/tmux-resurrect"
+SAVE_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/tmux/resurrect"
+MARKER="$SAVE_DIR/.amo-restored"   # mtime = when this boot's restore decision was made
+INTERVAL_MIN="@@TMUX_SAVE_INTERVAL@@"
+case "$INTERVAL_MIN" in ''|*[!0-9]*|0*) INTERVAL_MIN=15 ;; esac   # 0* also catches octal-looking 08/09
+PROCESSES='@@TMUX_RESTORE_PROCESSES@@'
+
+load() {  # idempotent: options + resurrect's key bindings (prefix C-s save, prefix C-r restore)
+  [ -f "$RESURRECT/resurrect.tmux" ] || return 1
+  # Pin the save dir: resurrect otherwise prefers ~/.tmux/resurrect when that exists (or a
+  # user's own @resurrect-dir), and the restore check below would never find `last`.
+  tmux set -g @resurrect-dir "$SAVE_DIR"
+  tmux set -g @resurrect-capture-pane-contents on
+  tmux set -g @resurrect-processes "$PROCESSES"
+  tmux run-shell "$RESURRECT/resurrect.tmux"
+}
+
+start_save_loop() {  # one loop per server; the server option dies with the server
+  [ "$(tmux show -gv @amo-persist-loop 2>/dev/null)" = 1 ] && return
+  tmux run-shell -b "while sleep $((INTERVAL_MIN * 60)); do tmux has-session 2>/dev/null || exit 0; '$RESURRECT/scripts/save.sh' quiet; done" \
+    && tmux set -g @amo-persist-loop 1
+}
+
+# Restore at most once per boot. A missing tmux server alone doesn't mean the Mac
+# restarted — kill-server or closing the last window stops it too, and restoring then
+# would resurrect windows you just closed. Compare against the kernel's boot time.
+restored_this_boot() {
+  local boot; boot=$(sysctl -n kern.boottime 2>/dev/null | sed -E 's/^[{] sec = ([0-9]+),.*/\1/')
+  [ -e "$MARKER" ] || return 1
+  case "$boot" in ''|*[!0-9]*) return 0 ;; esac   # unreadable boot time: never re-restore
+  [ "$(stat -f %m "$MARKER")" -ge "$boot" ]
+}
+
+lock() {  # two tabs connecting at once after a reboot must not both restore
+  local i=0
+  until mkdir "$SAVE_DIR/.amo-lock" 2>/dev/null; do
+    # a lock older than 2 min is left over from a killed run
+    [ -n "$(find "$SAVE_DIR/.amo-lock" -maxdepth 0 -mmin +2 2>/dev/null)" ] && rmdir "$SAVE_DIR/.amo-lock" 2>/dev/null
+    i=$((i + 1)); [ $i -ge 150 ] && return 0; sleep 0.2
+  done
+  trap 'rmdir "$SAVE_DIR/.amo-lock" 2>/dev/null' EXIT
+}
+
+case "${1:-}" in
+  ensure)
+    session="${2:?session}"; dir="${3:-$HOME}"
+    mkdir -p "$SAVE_DIR"; lock
+    if tmux has-session -t "$session" 2>/dev/null; then
+      restored_this_boot || touch "$MARKER"   # already up: nothing to bring back this boot
+      load && start_save_loop
+      exit 0
+    fi
+    tmux new-session -d -s "$session" -c "$dir"
+    if load; then
+      if ! restored_this_boot; then
+        # Synchronous, so an attaching `tmux -CC` client never races window creation.
+        # Restoring into the just-created session replaces its blank first window.
+        [ -e "$SAVE_DIR/last" ] && tmux run-shell "$RESURRECT/scripts/restore.sh"
+        touch "$MARKER"
+      fi
+      start_save_loop
+    fi ;;
+  save)
+    load && tmux run-shell "$RESURRECT/scripts/save.sh quiet" ;;
+  *) echo "usage: tmux-persist.sh ensure <session> <dir> | save" >&2; exit 2 ;;
+esac

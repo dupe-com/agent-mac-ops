@@ -6,6 +6,16 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 
+# Values spliced into templates by sed: reject what would break the substitution or the
+# single-quoted shell strings they land in. Runs before any template is (re)written, so a
+# bad value never leaves a half-rendered, truncated shell-snippet.sh behind.
+validate() {
+  case "${TMUX_RESTORE_PROCESSES-}" in *[\|\&\'\\]*)
+    echo "TMUX_RESTORE_PROCESSES can't contain | & ' or \\ — fix config.env" >&2; exit 1 ;; esac
+  case "${TMUX_SAVE_INTERVAL:-15}" in ''|*[!0-9]*|0*)   # 0* also catches 08/09 (bash reads them as octal)
+    echo "TMUX_SAVE_INTERVAL must be a whole number of minutes ≥ 1, no leading zero — fix config.env" >&2; exit 1 ;; esac
+}
+
 render() {
   sed -e "s|@@ALIAS_NAME@@|${ALIAS_NAME}|g" \
       -e "s|@@REMOTE_HOST@@|${REMOTE_HOST}|g" \
@@ -18,18 +28,23 @@ render() {
       -e "s|@@HANDOFF_TOKEN@@|${HANDOFF_TOKEN}|g" \
       -e "s|@@GHOSTTY_REMOTE_COLOR@@|${GHOSTTY_REMOTE_COLOR:-}|g" \
       -e "s|@@MOSH_SERVER@@|${MOSH_SERVER:-}|g" \
+      -e "s|@@TMUX_SAVE_INTERVAL@@|${TMUX_SAVE_INTERVAL:-15}|g" \
+      -e "s|@@TMUX_RESTORE_PROCESSES@@|${TMUX_RESTORE_PROCESSES-\"~claude->claude --continue\"}|g" \
       "$1"
 }
 
 # Render every template from the current config (used by both init and render).
 render_all() {
+  validate
   render "$ROOT/control/shell-snippet.sh.tmpl"     > "$ROOT/control/shell-snippet.sh"
   render "$ROOT/control/bin/ghostty-connect.sh.tmpl" > "$ROOT/control/bin/ghostty-connect.sh"
   render "$ROOT/remote/dev-session.sh.tmpl"        > "$ROOT/remote/dev-session.sh"
   render "$ROOT/remote/open-handoff.sh.tmpl"       > "$ROOT/remote/open-handoff.sh"
   render "$ROOT/remote/code-handoff.sh.tmpl"       > "$ROOT/remote/code-handoff.sh"
+  render "$ROOT/remote/tmux-persist.sh.tmpl"       > "$ROOT/remote/tmux-persist.sh"
   chmod +x "$ROOT/control/bin/ghostty-connect.sh" "$ROOT/remote/dev-session.sh" \
-           "$ROOT/remote/open-handoff.sh" "$ROOT/remote/code-handoff.sh"
+           "$ROOT/remote/open-handoff.sh" "$ROOT/remote/code-handoff.sh" \
+           "$ROOT/remote/tmux-persist.sh"
 }
 
 build_forwards() {
@@ -77,6 +92,7 @@ case "$cmd" in
     HANDOFF_TOKEN="${HANDOFF_TOKEN:-}"
     [ -z "$HANDOFF_TOKEN" ] && HANDOFF_TOKEN="$(uuidgen 2>/dev/null || date +%s%N)"
 
+    TMUX_RESTORE_PROCESSES="${TMUX_RESTORE_PROCESSES-\"~claude->claude --continue\"}"
     build_forwards
 
     cat > "$ROOT/config.env" <<EOF
@@ -89,6 +105,9 @@ ALIAS_NAME="$ALIAS_NAME"
 PROFILE_NAME="$PROFILE_NAME"
 GHOSTTY_REMOTE_COLOR="$GHOSTTY_REMOTE_COLOR"
 MOSH_SERVER="${MOSH_SERVER:-}"
+TMUX_PERSIST="${TMUX_PERSIST:-true}"
+TMUX_SAVE_INTERVAL="${TMUX_SAVE_INTERVAL:-15}"
+TMUX_RESTORE_PROCESSES='$TMUX_RESTORE_PROCESSES'
 FORWARD_PORTS="$FORWARD_PORTS"
 REMOTE_BIND="${REMOTE_BIND:-localhost}"
 HANDOFF_ENABLED="$HANDOFF_ENABLED"
@@ -125,7 +144,7 @@ EOF
     . "$ROOT/config.env"
     build_forwards
     render_all
-    echo "✅ re-rendered shell-snippet.sh, ghostty-connect.sh, dev-session.sh, open-handoff.sh from config.env"
+    echo "✅ re-rendered shell-snippet.sh, ghostty-connect.sh, dev-session.sh, open-handoff.sh, tmux-persist.sh from config.env"
     ;;
 
   remote)
@@ -185,6 +204,27 @@ EOF
       echo "⚠️  no mosh-server on $REMOTE_HOST — '$ALIAS_NAME-mosh' will try the default PATH (may fail; brew install mosh on the remote)"
     fi
 
+    # tmux persistence: saved windows come back after a reboot / power loss. Clones
+    # tmux-resurrect (pinned) into the remote's ~/.agent-mac-ops and pushes the helper
+    # that dev-session.sh + revive.sh use to create the session. Opt out: TMUX_PERSIST=false
+    # (also removes a previously pushed helper, so sessions go back to plain tmux).
+    if [ "${TMUX_PERSIST:-true}" = "true" ]; then
+      if ssh "$REMOTE_HOST" 'export PATH=/opt/homebrew/bin:/usr/local/bin:$PATH; set -e
+          d=~/.agent-mac-ops/tmux-resurrect; ref=cff343cf9e81983d3da0c8562b01616f12e8d548  # master 2023-03
+          [ -d "$d/.git" ] || git clone -q https://github.com/tmux-plugins/tmux-resurrect "$d"
+          git -C "$d" cat-file -e "$ref^{commit}" 2>/dev/null || git -C "$d" fetch -q --depth 1 origin "$ref"
+          git -C "$d" -c advice.detachedHead=false checkout -q "$ref"'; then
+        scp -q "$ROOT/remote/tmux-persist.sh" "$REMOTE_HOST:~/.agent-mac-ops/tmux-persist.sh"
+        ssh "$REMOTE_HOST" 'chmod +x ~/.agent-mac-ops/tmux-persist.sh'
+        echo "✅ tmux persistence on — windows saved every ${TMUX_SAVE_INTERVAL:-15} min, restored on the first connect after a reboot"
+      else
+        echo "⚠️  couldn't install tmux-resurrect on $REMOTE_HOST — sessions won't survive a reboot (git missing?)"
+      fi
+    else
+      ssh "$REMOTE_HOST" 'rm -f ~/.agent-mac-ops/tmux-persist.sh'
+      echo "ℹ️  tmux persistence off (TMUX_PERSIST=false) — an already-running save loop stops when the remote's tmux server next restarts"
+    fi
+
     if [ "${HANDOFF_ENABLED:-true}" = "true" ] && [ -f "$ROOT/remote/open-handoff.sh" ]; then
       ssh "$REMOTE_HOST" 'mkdir -p ~/bin'
       scp "$ROOT/remote/open-handoff.sh" "$REMOTE_HOST:~/bin/open"
@@ -198,6 +238,8 @@ EOF
     echo "one-time remote prep (needs admin on the remote):"
     echo "  • System Settings → General → Sharing → Remote Login = ON"
     echo "  • keep it awake:  sudo pmset -a sleep 0    (laptop, also: sudo pmset -a disablesleep 1)"
+    echo "  • power back on after an outage:  sudo pmset -a autorestart 1"
+    echo "    (with FileVault on it still waits at the unlock screen until someone types the password)"
     ;;
 
   *) echo "usage: ./setup.sh [init|render|remote]" >&2; exit 1 ;;
