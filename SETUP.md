@@ -224,7 +224,10 @@ a copy you manage with TPM is left alone) on the remote plus a small helper,
 It's per account: each person who uses the full setup runs `./setup.sh remote` for themselves. Teammates onboarded with just the invite script connect with plain `ssh` (no tmux session), so there's nothing to persist for them until they switch to the full setup (see [Pro users](#pro-users-skip-the-wizard)).
 
 - **Saving** — every `TMUX_SAVE_INTERVAL` minutes (default 15), from a loop inside your tmux server.
-  Windows, their directories, splits and recent scrollback land in `~/.local/share/tmux/resurrect/`.
+  Windows, their directories, splits, recent scrollback and iTerm tab colors land in
+  `~/.local/share/tmux/resurrect/`. (iTerm keeps tab colors in a tmux option keyed by pane id; pane ids
+  change on restore, so the helper records colors by window/pane position and translates them back
+  before iTerm reattaches.)
   Save by hand with `prefix + Ctrl-s`.
 - **Restoring** — the first `<alias>` after the remote restarts recreates the session and restores
   the last save *before* attaching, so your windows reappear as normal iTerm tabs. It happens **once

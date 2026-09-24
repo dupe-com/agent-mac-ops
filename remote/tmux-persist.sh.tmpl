@@ -1,8 +1,8 @@
 #!/bin/bash
 # agent-mac-ops tmux persistence (lives on the remote at ~/.agent-mac-ops/; rendered +
 # pushed by `./setup.sh remote`). Makes the dev session survive a reboot or power loss:
-# windows, their directories, splits and recent scrollback come back, and programs
-# listed in TMUX_RESTORE_PROCESSES are relaunched in their panes.
+# windows, their directories, splits, recent scrollback and iTerm tab colors come back,
+# and programs listed in TMUX_RESTORE_PROCESSES are relaunched in their panes.
 #
 #   tmux-persist.sh ensure <session> <dir>   create-or-keep the session; restore once per boot
 #   tmux-persist.sh save                     snapshot now
@@ -20,6 +20,8 @@ export PATH=/opt/homebrew/bin:/usr/local/bin:$PATH
 RESURRECT="$HOME/.agent-mac-ops/tmux-resurrect"
 SAVE_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/tmux/resurrect"
 MARKER="$SAVE_DIR/.amo-restored"   # mtime = when this boot's restore decision was made
+COLORS="$SAVE_DIR/amo-tab-colors"  # session<TAB>window.pane<TAB>iTerm color, from the last save
+SELF="$HOME/.agent-mac-ops/tmux-persist.sh"
 INTERVAL_MIN="@@TMUX_SAVE_INTERVAL@@"
 case "$INTERVAL_MIN" in ''|*[!0-9]*|0*) INTERVAL_MIN=15 ;; esac   # 0* also catches octal-looking 08/09
 PROCESSES='@@TMUX_RESTORE_PROCESSES@@'
@@ -31,7 +33,43 @@ load() {  # idempotent: options + resurrect's key bindings (prefix C-s save, pre
   tmux set -g @resurrect-dir "$SAVE_DIR"
   tmux set -g @resurrect-capture-pane-contents on
   tmux set -g @resurrect-processes "$PROCESSES"
+  tmux set -g @resurrect-hook-post-save-all "'$SELF' colors-save"
+  tmux set -g @resurrect-hook-post-restore-all "'$SELF' colors-restore"
   tmux run-shell "$RESURRECT/resurrect.tmux"
+}
+
+# iTerm's tmux integration keeps tab colors in the session option @tab_colors: "t_" + hex of
+# "<pane id>=<color> ...", pane ids without the %. resurrect doesn't save user options, and
+# pane ids are renumbered on restore, so store colors by window.pane and translate back.
+# Runs from resurrect's post-save / post-restore hooks, so prefix C-s / C-r carry them too.
+colors_save() {
+  local tmp="$COLORS.tmp" s v
+  : > "$tmp"
+  for s in $(tmux list-sessions -F '#{session_name}'); do
+    v=$(tmux show -t "$s" -v @tab_colors 2>/dev/null); [ "${v#t_}" != "$v" ] || continue
+    { printf '%s' "${v#t_}" | xxd -r -p; echo; } | tr ' ' '\n' | while IFS='=' read -r id color; do
+      [ -n "$color" ] && [ "$color" != none ] || continue
+      pos=$(tmux display -p -t "%$id" '#{window_index}.#{pane_index}' 2>/dev/null) || continue
+      printf '%s\t%s\t%s\n' "$s" "$pos" "$color" >> "$tmp"
+    done
+  done
+  mv "$tmp" "$COLORS"
+}
+
+colors_restore() {
+  [ -s "$COLORS" ] || return 0
+  local s pos color id cur
+  for s in $(cut -f1 "$COLORS" | sort -u); do
+    tmux has-session -t "=$s" 2>/dev/null || continue
+    cur=$(tmux show -t "$s" -v @tab_colors 2>/dev/null); cur=$(printf '%s' "${cur#t_}" | xxd -r -p 2>/dev/null)
+    while IFS=$'\t' read -r ss pos color; do
+      [ "$ss" = "$s" ] || continue
+      id=$(tmux display -p -t "=$s:$pos" '#{pane_id}' 2>/dev/null) || continue; id=${id#%}
+      cur=$(printf '%s' "$cur" | tr ' ' '\n' | grep -v "^$id=" | tr '\n' ' ')"$id=$color"
+    done < "$COLORS"
+    cur=$(printf '%s' "$cur" | tr -s ' ' | sed 's/^ //; s/ $//')
+    tmux set -t "$s" @tab_colors "t_$(printf '%s' "$cur" | xxd -p | tr -d '\n')"
+  done
 }
 
 start_save_loop() {  # one loop per server; the server option dies with the server
@@ -81,5 +119,7 @@ case "${1:-}" in
     fi ;;
   save)
     load && tmux run-shell "$RESURRECT/scripts/save.sh quiet" ;;
+  colors-save)    colors_save ;;
+  colors-restore) colors_restore ;;
   *) echo "usage: tmux-persist.sh ensure <session> <dir> | save" >&2; exit 2 ;;
 esac
