@@ -71,6 +71,11 @@ Once logged in, agents on the box can use `xclaude` like any other command.
   session throws 400s, MCP servers are the likely trigger; JSON-Schema translation to
   Gemini drops fields ([#1424](https://github.com/router-for-me/CLIProxyAPI/issues/1424)).
   Treat proxied sessions as an evaluation surface, not a workhorse.
+- **No Remote Control.** `xclaude` sets `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN`, so
+  the session doesn't run on your claude.ai login. It won't show up in the Claude phone
+  app, and `--remote-control` won't work. Plain `claude` sessions on the same Mac are
+  unaffected, because the variables only apply to that one launch. Never export them
+  globally.
 - **Local-only by design.** The proxy binds localhost and requires the generated bearer
   key. Don't expose the port (Tailscale-serve it if you must share) — the key guards your
   ChatGPT session, and there's no multi-user scoping.
