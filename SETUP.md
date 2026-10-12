@@ -251,6 +251,19 @@ Ghostty's native-splits mode has no tmux session, so there's nothing to save.
 
 ---
 
+
+## 4e. Tab colors by worktree group (iTerm)
+
+iTerm's Tab Groups are lost on every `tmux -CC` reattach — iTerm never stores them in tmux.
+`control/bin/install-iterm-tab-colors.sh` installs an iTerm AutoLaunch script that colors tabs
+instead, working out a group from the worktree each tab is in: `fragblitz-replay` and
+`fragblitz-auth` share a color, `DUP-1234-*` worktrees share another, `main` is left alone. It
+re-checks every few seconds, so tabs that come back after a reconnect are recolored straight away.
+Run the installer on the Mac where iTerm runs (needs Settings → General → Magic → Enable Python API).
+
+Groups get a color automatically. To pin colors, merge groups, or name non-worktree folders, add
+`~/.config/iterm-tab-colors.json` — the format is at the top of `control/bin/iterm-tab-colors.py`.
+
 ## 5. Verify
 
 ```bash
