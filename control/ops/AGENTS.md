@@ -23,7 +23,7 @@ control/ops/bin/remote-run.sh stop-dev.sh # stop the dev stack (window-safe — 
 Usage history (for "how many more people can this box carry?"): `install-usage-sampler.sh`
 installs a LaunchAgent on the remote that appends CPU, memory, swap, disk and per-user Claude
 session counts to `~/Library/Logs/agent-mac-ops-usage.csv` every 5 minutes. Read it with
-`control/ops/bin/remote-run.sh usage-report.sh` (per-day average / peak; `USAGE_DAYS` to widen).
+`control/ops/bin/remote-run.sh usage-report.sh` (per-day average / peak; prefix `USAGE_DAYS=30` to widen).
 
 When asked to "check on the box": run `status.sh`, summarize in one or two sentences,
 and only surface lines with `⚠️`. If something looks down, propose `revive.sh` before

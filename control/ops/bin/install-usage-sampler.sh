@@ -32,7 +32,12 @@ cat > "\$PLIST" <<PEOF
 </dict>
 </plist>
 PEOF
-launchctl bootout gui/\$(id -u)/$LABEL 2>/dev/null || true
-launchctl bootstrap gui/\$(id -u) "\$PLIST"
+# gui/ needs someone logged in at the screen (true on an always-on Mac after FileVault
+# unlock); fall back to the user/ domain, which loads over SSH alone.
+domain=gui/\$(id -u)
+launchctl print "\$domain" >/dev/null 2>&1 || domain=user/\$(id -u)
+launchctl bootout "\$domain/$LABEL" 2>/dev/null || true
+launchctl bootstrap "\$domain" "\$PLIST"
+echo "loaded in \$domain"
 echo "installed $LABEL on \$(hostname -s) — every ${INTERVAL}s; csv: ~/Library/Logs/agent-mac-ops-usage.csv"
 REOF
