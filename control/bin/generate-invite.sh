@@ -25,6 +25,11 @@ if ! [[ "$INDEX" =~ ^[1-9]$ ]]; then
   exit 1
 fi
 
+# The admin's REMOTE_HOST is often an ~/.ssh/config alias that exists only on the admin's
+# laptop. The teammate needs the real (Tailscale) name, so resolve the alias first.
+MAC_NAME="$(ssh -G "$REMOTE_HOST" 2>/dev/null | awk '/^hostname /{print $2; exit}')"
+REMOTE_HOST="${MAC_NAME:-$REMOTE_HOST}"
+
 LOOPBACK_IP="127.0.0.${INDEX}"
 STUDIO_HOST="${USERNAME}.studio"
 # Handoff ports must be unique per user: the reverse tunnel binds on the remote's
@@ -68,22 +73,22 @@ hr
 echo ""
 echo "  This takes about 5 minutes. Just follow the prompts."
 echo ""
-read -r -p "  Press Enter to begin… "
+read -r -p "  Press Enter to begin… " < /dev/tty
 
 # ── step 1: Tailscale ─────────────────────────────────────────────────────────
 banner "Step 1 of 4 — Join the team network (Tailscale)"
 
 echo "  Tailscale is how you reach the team Mac securely from anywhere."
 echo ""
-echo "  \${_bold}1.\${_reset} Open the App Store on your Mac"
-echo "  \${_bold}2.\${_reset} Search for \${_bold}Tailscale\${_reset} and install it"
+echo "  \${_bold}1.\${_reset} Go to \${_bold}tailscale.com/download\${_reset}"
+echo "  \${_bold}2.\${_reset} Install the \${_bold}Standalone\${_reset} app (not the App Store one)"
 echo "  \${_bold}3.\${_reset} Open Tailscale from your menu bar (top-right of screen)"
 echo "  \${_bold}4.\${_reset} Sign in — use the same email your admin invited you with"
 echo "  \${_bold}5.\${_reset} You should see \${_bold}${REMOTE_HOST}\${_reset} appear in the Tailscale device list"
 echo ""
 echo "  (If you haven't received a Tailscale invite yet, ask your admin to send one.)"
 echo ""
-read -r -p "  Press Enter once Tailscale is connected and you can see ${REMOTE_HOST}… "
+read -r -p "  Press Enter once Tailscale is connected and you can see ${REMOTE_HOST}… " < /dev/tty
 
 note "Checking Tailscale connection…"
 if ping -c 1 -W 3 "\$REMOTE_HOST" &>/dev/null; then
@@ -131,7 +136,7 @@ echo ""
 echo "  \${_bold}Send this to your admin\${_reset} — paste it in Slack."
 echo "  It's safe to share. Wait for them to confirm you're provisioned."
 echo ""
-read -r -p "  Press Enter once your admin says you're ready… "
+read -r -p "  Press Enter once your admin says you're ready… " < /dev/tty
 
 # ── step 3: verify SSH connection ─────────────────────────────────────────────
 banner "Step 3 of 4 — Verify SSH connection"
@@ -228,8 +233,18 @@ if command -v gh &>/dev/null && gh auth status &>/dev/null 2>&1; then
 fi
 
 echo ""
+echo "✅  Easiest: send ${USERNAME} this to paste into Claude Code on their laptop (see JOIN.md):"
+echo ""
+echo "    Set me up on our team's always-on Mac."
+echo "    My username is ${USERNAME}, my slot is ${INDEX}, and the Mac's Tailscale name is ${REMOTE_HOST}."
+echo "    Clone https://github.com/dupe-com/agent-mac-ops into ~/Work/agent-mac-ops (or pull it if it's"
+echo "    already there), read JOIN.md, and follow \"Steps for the agent\" one at a time."
+echo "    Tell me in plain language what each step does, and stop whenever a step needs me."
+echo ""
+echo "   Also invite them to Tailscale. When they send their SSH key: ./users provision ${USERNAME}"
+echo ""
 if [[ -n "$CURL_CMD" ]]; then
-  echo "✅  Send ${USERNAME} this one line (paste it in Slack):"
+  echo "    Or, without an agent, send ${USERNAME} this one line (paste it in Slack):"
   echo ""
   echo "    ${CURL_CMD}"
   echo ""

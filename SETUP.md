@@ -362,11 +362,16 @@ This handles everything interactively:
 - Uploads it to a private GitHub Gist and prints a single curl command to send them
 - After you have their SSH key, provisions their account on the Mac
 
-**User: run the curl command from Slack in their Terminal.**
+**Preferred: send them the agent prompt.** `./users add` prints a ready-to-paste prompt with their
+username, slot and Mac name filled in. They paste it into Claude Code on their laptop, and the agent
+follows [JOIN.md](JOIN.md). That covers everything below, plus the parts the curl script skips:
+`config.env` with their own `REMOTE_BIND`/`HANDOFF_PORT`, the shell snippet, and the browser handoff.
+
+**Without an agent: they run the curl command from Slack in their Terminal.**
 
 The script walks them through 4 steps:
 
-1. **Tailscale** — install from App Store, sign in with the invite email, verify they can reach the Mac
+1. **Tailscale** — install the Standalone app from tailscale.com, sign in with the invite email, verify they can reach the Mac
 2. **SSH key** — generates one if needed, copies it to clipboard, tells them to send it to you
 3. **Connection test** — verifies SSH works once you've provisioned them
 4. **Mac config** — adds SSH shortcut to `~/.ssh/config` and their `.studio` hostname to `/etc/hosts`
