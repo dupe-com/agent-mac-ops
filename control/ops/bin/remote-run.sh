@@ -13,7 +13,7 @@ src="$ROOT/control/ops/bin/$script"
 [ -f "$src" ] || { echo "no such script: $script" >&2; exit 1; }
 
 {
-  printf 'export WORK_DIR=%q TMUX_SESSION=%q EXTRA_LOG=%q\n' \
-    "${WORK_DIR:-~}" "${TMUX_SESSION:-dev}" "${EXTRA_LOG:-}"
+  printf 'export WORK_DIR=%q TMUX_SESSION=%q EXTRA_LOG=%q USAGE_DAYS=%q\n' \
+    "${WORK_DIR:-~}" "${TMUX_SESSION:-dev}" "${EXTRA_LOG:-}" "${USAGE_DAYS:-7}"
   cat "$src"
 } | ssh -o BatchMode=yes -o ConnectTimeout=10 "$REMOTE_HOST" 'bash -s'
