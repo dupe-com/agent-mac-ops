@@ -17,6 +17,9 @@
   <a href="#what-this-is-not">What this is not</a>
 </p>
 
+> **Joining a team Mac that someone else runs?** Skip this page and go to **[JOIN.md](JOIN.md)**.
+> It has one prompt to paste into Claude Code on your laptop, and the agent does the setup.
+
 ---
 
 ## Features
