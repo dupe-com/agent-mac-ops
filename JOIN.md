@@ -67,7 +67,9 @@ Then check again.
 
 ### 2. SSH key (YOU)
 
-1. Use `~/.ssh/id_ed25519` if it exists.
+1. Use `~/.ssh/id_ed25519` if it exists. If that key has a passphrase and isn't loaded yet
+   (`ssh-add -l` doesn't list it), ask the human to run `! ssh-add --apple-use-keychain ~/.ssh/id_ed25519`.
+   Otherwise the `BatchMode` checks below fail even after the account exists.
 2. If it doesn't, create one: `ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N "" -C "<USERNAME>@team"`.
 3. Copy the public key to the clipboard with `pbcopy < ~/.ssh/id_ed25519.pub`.
 
@@ -119,7 +121,10 @@ everything else at its default.
 | `HANDOFF_PORT` | `<HANDOFF_PORT>` | **required.** It must be unique on the team Mac. If two people share it, the second person's browser handoff never connects. |
 | `HANDOFF_TOKEN` | the output of `uuidgen` | the shared secret for the browser handoff |
 
-If `config.env` already exists, edit it in place and keep the `HANDOFF_TOKEN` it already has.
+If `config.env` already exists, edit it in place. Keep its `HANDOFF_TOKEN` only if it isn't empty.
+An empty token turns off the handoff listener's authentication, which would let other users on the
+team Mac reach this laptop's listener through the tunnel. `./setup.sh render` doesn't generate one,
+so if it's empty, set it to `uuidgen` output yourself.
 
 Then run:
 
@@ -163,8 +168,12 @@ is normal here, because the session starts the first time the human runs `box`.
 Tell the human to:
 
 1. Open a **new** terminal window, so the shell snippet loads.
-2. Type `box`. A window opens that is running on the team Mac. In iTerm2 it is native and resizable,
-   and `Cmd+D` splits it.
+2. Connect to the team Mac:
+   - **iTerm2:** type `box`. A native, resizable window opens, and `Cmd+D` splits it. Sessions keep
+     running when the laptop disconnects, and `box` reattaches to them.
+   - **Ghostty:** type `box-tmux`, not `box`. Plain `box` gives native splits that end when the
+     laptop disconnects, so Claude sessions there wouldn't survive a closed lid. In `box-tmux`, the
+     panes are tmux panes (prefix `Ctrl-b`), and SETUP.md §4c lists the keys.
 3. Install Claude Code for their account on the team Mac:
    `curl -fsSL https://claude.ai/install.sh | bash`, then open a new pane. It installs into their
    home folder, so it doesn't need the admin.
