@@ -25,6 +25,10 @@ installs a LaunchAgent on the remote that appends CPU, memory, swap, disk and pe
 session counts to `~/Library/Logs/agent-mac-ops-usage.csv` every 5 minutes. Read it with
 `control/ops/bin/remote-run.sh usage-report.sh` (per-day average / peak; prefix `USAGE_DAYS=30` to widen).
 
+Claude sync (optional, per user; docs/CLAUDE-SYNC.md): `status.sh` prints a `sync:` line
+for a user who installed it. Details and conflict copies: `control/bin/claude-sync.sh status`
+and `control/bin/claude-sync.sh conflicts` (both read-only; `conflicts --park` moves files).
+
 When asked to "check on the box": run `status.sh`, summarize in one or two sentences,
 and only surface lines with `⚠️`. If something looks down, propose `revive.sh` before
 escalating.

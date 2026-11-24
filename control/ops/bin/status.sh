@@ -28,6 +28,12 @@ if [ -d "$WORK_DIR/.git" ]; then
   echo "repo:  $(git branch --show-current 2>/dev/null) | $(git status --porcelain 2>/dev/null | wc -l | tr -d ' ') dirty files"
 fi
 
+# Optional Claude sync (docs/CLAUDE-SYNC.md). Prints nothing for a user who has not
+# installed it; ⚠️ only for conflict copies, folder errors, or a stopped service.
+# The other Mac being asleep is normal and is reported without a warning.
+cs="$HOME/.agent-mac-ops/claude-sync-node.sh"
+[ -f "$cs" ] && bash "$cs" status --brief 2>/dev/null
+
 # Optional: drop an executable ~/.agent-mac-ops/health-hook.sh on the remote for
 # project-specific checks (services, queues, GPU temp…). Its output is appended.
 hook="$HOME/.agent-mac-ops/health-hook.sh"
