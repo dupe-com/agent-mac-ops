@@ -32,6 +32,11 @@ there are per-user, and both fail quietly if left at the default:
   **not** divide it, and neither do separate macOS accounts. Two people sharing a value
   means the second tunnel can never bind and re-dials forever.
 
+A third value matters only for someone who turns on the optional Claude sync
+([CLAUDE-SYNC.md](CLAUDE-SYNC.md)): **`CLAUDE_SYNC_PORT="2200<index>"`**. Syncthing
+listens on that TCP port on every interface, which all users on the remote share. The
+admin uses 22000.
+
 Neither value has ever been set by a real second user — both slots were provisioned
 before the per-user fix landed. The first teammate onboarded after it is also the
 first real test of it.

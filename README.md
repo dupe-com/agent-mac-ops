@@ -63,6 +63,10 @@
   local panes and through this repo's `tmux -CC` remote panes alike; on the laptop, `sitrep` lists
   sessions on the box next to local ones. Install on both machines:
   `git clone git@github.com:dupe-com/sitrep.git ~/Work/sitrep && ~/Work/sitrep/install.sh`.
+- 🔁 **Pick up a Claude conversation on either Mac (optional).** `claude-sync.sh` keeps
+  Claude's conversation files and handoff notes in step between your laptop and the box
+  within seconds, directly over Tailscale, so `claude --resume` finds them on both.
+  Per user, off until you turn it on. ([details →](docs/CLAUDE-SYNC.md))
 - 📊 **Optional daily health digest** to Slack / Discord / any webhook.
 - 🔀 **Other models inside Claude Code (optional).** One script installs
   [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) as a local service and wires an
